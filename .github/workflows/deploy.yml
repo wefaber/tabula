@@ -29,7 +29,7 @@ env:
 jobs:
   deploy:
     name: ${{ inputs.action == 'rollback' && 'Rollback' || 'Deploy' }}
-    runs-on: [self-hosted, wefaber]
+    runs-on: [self-hosted, vps-wefaber]
     timeout-minutes: 15
     environment:
       name: tabula
