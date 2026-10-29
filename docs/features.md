@@ -66,6 +66,12 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Contraste alto**: sube el texto secundario y los bordes en los dos temas de forest (`src/index.css`).
 - **Idioma**: el shell (header, Salir, Panel ok, atajos, loader) y el diálogo salen en el idioma elegido. Las claves están en `src/lib/i18n.ts`.
 
+### Referencias y fuentes (v0.6.6)
+
+- **Referencias**: al escribir `@` en la pregunta aparece un picker con los containers, las APIs (`api/*.php`) y las últimas llamadas. Elegir una deja un chip sobre el textarea (`@container:back`, `@api:login`, `@call:<id>`). Flechas para moverse, Enter para elegir, Esc para cerrar. Hasta 5 por pregunta.
+- Al enviar, el server valida cada id contra datos reales y adjunta lo que dice: estado del container, último veredicto de la API o la línea de la llamada. Van en un bloque `<referenced>` con el mismo saneado que el snapshot. Un id inexistente rechaza la pregunta sin escribir el hilo.
+- **Fuentes**: debajo de cada respuesta terminada, una fila «Fuentes» con chips que abren un detalle: la foto del estado (containers, errores recientes, tag activo), los pasos de herramientas del run y cada referencia. Los datos se guardan con el mensaje (migración `0090_ether_sources`, campo `sources` en `EtherMessage`); las respuestas anteriores no tienen fuentes.
+
 ## Pendiente
 
 - **Idioma en las secciones**: Containers, APIs, Llamadas, Base de datos, Git, Ask Ether y Acceso siguen en español. Para traducir una sección, sumar sus textos al diccionario de `src/lib/i18n.ts` y usar `useT()`.

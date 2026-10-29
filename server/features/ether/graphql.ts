@@ -1,6 +1,12 @@
 // Ask Ether GraphQL: threads and messages of the caller, the live run, and the ask/approve/stop mutations.
 // Approving is admin-only. A run's events are on the bus channel `ether-<runId>`, not in these responses.
 import type { ToolStep } from '../../../shared/ether'
+import type {
+  MessageSources,
+  RefData,
+  SourceContainer,
+  SourceError,
+} from '../../../shared/etherRefs'
 import { builder, fail, requireAdmin } from '../../graphql/builder'
 import { audit } from '../../audit'
 import {
@@ -33,6 +39,13 @@ const MessageRef = builder.objectRef<MessageRow>('EtherMessage').implement({
     runId: t.exposeString('runId', { nullable: true }),
     createdAt: t.exposeString('createdAt'),
     shareToken: t.exposeString('shareToken', { nullable: true }),
+    sources: t.field({
+      type: SourcesRef,
+      nullable: true,
+      description:
+        'Qué miró Ether para esta respuesta. Null en preguntas y respuestas anteriores.',
+      resolve: (m) => m.sources,
+    }),
   }),
 })
 
@@ -51,6 +64,49 @@ const ToolStepRef = builder.objectRef<ToolStep>('EtherToolStep').implement({
   fields: (t) => ({
     tool: t.exposeString('tool'),
     preview: t.exposeString('preview'),
+  }),
+})
+
+const SourceContainerRef = builder
+  .objectRef<SourceContainer>('EtherSourceContainer')
+  .implement({
+    fields: (t) => ({
+      service: t.exposeString('service'),
+      state: t.exposeString('state'),
+      health: t.exposeString('health'),
+      image: t.exposeString('image'),
+    }),
+  })
+
+const SourceErrorRef = builder
+  .objectRef<SourceError>('EtherSourceError')
+  .implement({
+    fields: (t) => ({
+      at: t.exposeString('at'),
+      what: t.exposeString('what'),
+    }),
+  })
+
+const SourceRefRef = builder.objectRef<RefData>('EtherSourceRef').implement({
+  fields: (t) => ({
+    kind: t.exposeString('kind'),
+    id: t.exposeString('id'),
+    title: t.exposeString('title'),
+    facts: t.exposeStringList('facts'),
+  }),
+})
+
+const SourcesRef = builder.objectRef<MessageSources>('EtherSources').implement({
+  fields: (t) => ({
+    at: t.exposeString('at'),
+    activeTag: t.exposeString('activeTag', { nullable: true }),
+    containers: t.field({
+      type: [SourceContainerRef],
+      resolve: (s) => s.containers,
+    }),
+    errors: t.field({ type: [SourceErrorRef], resolve: (s) => s.errors }),
+    tools: t.field({ type: [ToolStepRef], resolve: (s) => s.tools }),
+    refs: t.field({ type: [SourceRefRef], resolve: (s) => s.refs }),
   }),
 })
 
@@ -161,9 +217,13 @@ builder.mutationFields((t) => ({
     args: {
       thread: t.arg.string({ required: true }),
       question: t.arg.string({ required: true }),
+      refs: t.arg.stringList({
+        description:
+          'Referencias de la pregunta: `@container:back`, `@api:login`, `@call:<id>`. Hasta 5; se validan contra datos reales.',
+      }),
     },
-    resolve: (_root, { thread, question }, ctx) =>
-      runsFor(ctx).ask(ctx.user, thread, question),
+    resolve: (_root, { thread, question, refs }, ctx) =>
+      runsFor(ctx).ask(ctx.user, thread, question, refs),
   }),
   etherApprove: t.boolean({
     description: 'Aprueba (o rechaza) una acción que Ether pidió. Solo admin.',
