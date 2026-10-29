@@ -32,3 +32,17 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Pele draws Ether's diagrams with these. Mapped to the forest roles, so a theme switch restyles them without a re-render. */
+.pele {
+  --pele-bg: var(--surface);
+  --pele-fg: var(--text);
+  --pele-muted: var(--text-muted);
+  --pele-line: var(--text-muted);
+  --pele-surface: var(--surface-2);
+  --pele-surface-alt: var(--surface-3);
+  --pele-border: var(--border);
+  --pele-accent: var(--accent);
+  --pele-critical: var(--danger);
+  --pele-error: var(--danger);
+}

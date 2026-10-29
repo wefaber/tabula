@@ -53,6 +53,7 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Responder a una parte**: seleccionás texto de una respuesta y la siguiente pregunta se manda como `Q: <cita>` y `A: <tu respuesta>`.
 - **Compartir respuesta**: un modal crea un link de solo lectura a una respuesta puntual (`#ether?s=<token>`); el hilo queda privado y el link se puede revocar.
 - El canal SSE de cada run usa una clave secreta que solo reciben el dueño y los admins.
+- **Diagramas (v0.6.5)**: Ether puede responder con un bloque ` ```mermaid ` (flowchart para arquitectura, sequenceDiagram para flujos). El panel lo dibuja con [Pele](https://pele.run) (MIT) en el lugar del bloque: **Ampliar** lo abre en un diálogo y **Copiar Mermaid** copia el código. Si no dibuja, muestra el código. El SVG pasa por un sanitizador (`shared/mermaid.ts`) antes de llegar al DOM; los colores siguen el tema forest, claro y oscuro. Las respuestas compartidas también lo muestran.
 
 ## Pendiente
 

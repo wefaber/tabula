@@ -299,8 +299,25 @@ export const FIXTURE_DENIED =
 /** Questions that make the fixture ask for approval, like a real restart would. */
 export const FIXTURE_NEEDS_APPROVAL = /reinici|restart|apag[aá]|reconstru/i
 
+/** Answer to a question that asks for a diagram: one Mermaid block, so the diagram path runs without a live Ether. */
+export const FIXTURE_DIAGRAM = [
+  'Así se conectan las piezas que mira el panel:',
+  '',
+  '```mermaid',
+  'flowchart LR',
+  '  Panel[Tabula] --> API[API Elysia]',
+  '  API --> Podman[Podman rootless]',
+  '  API --> GitHub[GitHub REST]',
+  '  API --> Hermes[Ether Hermes]',
+  '```',
+  '',
+  'La API habla con Podman por el socket, con GitHub en solo lectura y con Hermes por loopback.',
+].join('\n')
+export const FIXTURE_DIAGRAM_QUESTION = /diagrama/i
+
 interface FixtureRun {
   asksApproval: boolean
+  answer: string
   decision: Promise<'once' | 'deny' | 'stop'>
   decide: (d: 'once' | 'deny' | 'stop') => void
   decided: 'once' | 'deny' | 'stop' | null
@@ -352,6 +369,9 @@ export function fixtureEther({
       const question = input.split('</snapshot>').pop() ?? input
       const run: FixtureRun = {
         asksApproval: FIXTURE_NEEDS_APPROVAL.test(question),
+        answer: FIXTURE_DIAGRAM_QUESTION.test(question)
+          ? FIXTURE_DIAGRAM
+          : FIXTURE_ANSWER,
         decision,
         decide,
         decided: null,
@@ -394,7 +414,7 @@ export function fixtureEther({
         yield { type: 'done', status: 'completed', output: answer }
         return
       }
-      for (const text of chunks(FIXTURE_ANSWER)) {
+      for (const text of chunks(run.answer)) {
         if (!live()) return
         if (run.decided === 'stop') {
           yield { type: 'done', status: 'cancelled', output: '' }
@@ -403,7 +423,7 @@ export function fixtureEther({
         yield { type: 'delta', text }
         await sleep(delayMs)
       }
-      yield { type: 'done', status: 'completed', output: FIXTURE_ANSWER }
+      yield { type: 'done', status: 'completed', output: run.answer }
     },
 
     async status(runId) {
