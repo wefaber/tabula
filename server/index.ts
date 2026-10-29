@@ -5,6 +5,7 @@ import { fixtureGithub, githubClient } from './adapters/github'
 import { fixturePodman, podmanClient } from './adapters/podman'
 import { createApp } from './app'
 import { syncUsers } from './auth'
+import { fixtureWhois, tailscaleWhois } from './auth/whois'
 import { Bus } from './bus'
 import { loadConfig } from './config'
 import { openDb } from './db'
@@ -24,6 +25,9 @@ const deps: Deps = {
   db,
   bus: new Bus(),
   podman: config.fixtures ? fixturePodman() : podmanClient(config.podmanSocket),
+  whois: config.fixtures
+    ? fixtureWhois()
+    : tailscaleWhois(config.tailscaleSocket),
   github: config.fixtures
     ? fixtureGithub(config.github.repo)
     : githubClient(config.github.repo, config.github.token),
