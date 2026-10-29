@@ -1,0 +1,30 @@
+name: Deploy
+
+# Push to main -> check, build, blue/green on the VPS. Runner: the wefaber org's self-hosted one.
+# No pull_request trigger: a self-hosted runner never runs PR code.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-gravida-devpanel
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, wefaber]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: /opt/bun/bun install --frozen-lockfile
+      - name: Check
+        run: /opt/bun/bun run check
+      - name: Build
+        run: /opt/bun/bun run build
+      - name: Deploy (blue/green)
+        run: bash deploy/gravida-devpanel.sh "$(git rev-parse --short HEAD)"
