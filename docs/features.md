@@ -54,6 +54,17 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Compartir respuesta**: un modal crea un link de solo lectura a una respuesta puntual (`#ether?s=<token>`); el hilo queda privado y el link se puede revocar.
 - El canal SSE de cada run usa una clave secreta que solo reciben el dueño y los admins.
 
+## Preferencias (v0.6.4)
+
+- **Engranaje** en el header abre el diálogo con cuatro opciones: idioma (Español, English), tema (Oscuro, Claro, Sistema), tamaño de texto (90, 100, 115 o 130%) y contraste (Normal, Alto). Cada cambio se aplica al toque y se guarda.
+- **Por usuario, en el server**: tabla `user_prefs` (migración 0080), query `prefs` y mutation `setPrefs`. Los valores se validan; lo que no se manda queda como estaba. Cada cambio queda en la auditoría.
+- **Sin destello**: el navegador guarda una copia local (`tabula-prefs`, y `tabula-theme` para el tema) que `index.html` lee antes del primer paint. Al cargar el shell, manda lo guardado en el server.
+- **Tema Sistema** sigue `prefers-color-scheme` del navegador y se actualiza si cambia.
+- **Escala**: zoom del documento (`--ui-scale` en `src/index.css`), porque los tokens de tipo están en px.
+- **Contraste alto**: sube el texto secundario y los bordes en los dos temas de forest (`src/index.css`).
+- **Idioma**: el shell (header, Salir, Panel ok, atajos, loader) y el diálogo salen en el idioma elegido. Las claves están en `src/lib/i18n.ts`.
+
 ## Pendiente
 
-Ver [issue #12](https://github.com/wefaber/tabula/issues/12) (refactor de componentes grandes) y la lista de VPS en [ARCHITECTURE.md](../ARCHITECTURE.md): runner, `tabula.env`, nginx, DNS y certificado.
+- **Idioma en las secciones**: Containers, APIs, Llamadas, Base de datos, Git, Ask Ether y Acceso siguen en español. Para traducir una sección, sumar sus textos al diccionario de `src/lib/i18n.ts` y usar `useT()`.
+- Ver [issue #12](https://github.com/wefaber/tabula/issues/12) (refactor de componentes grandes) y la lista de VPS en [ARCHITECTURE.md](../ARCHITECTURE.md): runner, `tabula.env`, nginx, DNS y certificado.
