@@ -18,5 +18,10 @@ export default defineConfig({
   },
   server: {
     host: true,
+    proxy: {
+      '/graphql': 'http://127.0.0.1:4171',
+      '/auth': 'http://127.0.0.1:4171',
+      '/sse': 'http://127.0.0.1:4171',
+    },
   },
 })

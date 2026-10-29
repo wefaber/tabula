@@ -1,35 +1,29 @@
-# React + TypeScript + Vite
+# Tabula
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Panel de desarrollo del stack de Gravida (NEXUS) para Faku, Pablo y Jean. URL: **https://gravidadev.wefaber.net** (solo tailnet).
 
-Currently, two official plugins are available:
+- Estado de las APIs y de los containers (`nexus-test`: db, back, front)
+- Últimas llamadas a la API
+- Editor de la base de datos
+- Encender, apagar y reiniciar el stack
+- Git y últimos pushes (`@wefaber/gitview`)
+- Ask Ether, preguntas sobre el sistema
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Estado por sección: [docs/README.md](docs/README.md). Arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## React Compiler
+## Desarrollo
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
-
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+bun install
+bun run dev:api      # API con adapters de prueba (sin Podman, DB ni GitHub), :4171
+bun run dev          # Vite en :5173, proxy a :4171
+bun run check        # format + lint + typecheck + test (lo mismo corre el CI)
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+`TABULA_DEV_LOGIN=dev@local` simula la identidad que resolvería el whois del tailnet (ignorado en producción).
+
+## Acceso
+
+Tailnet: entrás solo. nginx escucha en la IP del tailnet, el panel resuelve de quién es el dispositivo (`tailscale whois`) y
+lo compara con `TABULA_USERS` (`login:rol:Nombre,...`). Fuera del tailnet no hay ruta: usá un token personal desde un
+dispositivo que sí llegue (sección Acceso, o `bun run token create <login>` en el server).
