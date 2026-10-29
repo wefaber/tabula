@@ -30,6 +30,23 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 # The real domain, as a tailnet client reaches it: SNI + Host intact, address pinned to the VPS tailnet IP.
 public_ready() { curl -fsS --max-time 5 --resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" "$PUBLIC/ready" >/dev/null; }
 ready() { curl -fsS --max-time 5 "http://127.0.0.1:$(port "$1")/ready" >/dev/null; }
+# Version served publicly. Prints an empty line if the call fails: the caller compares strings.
+public_version() {
+  curl -fsS --max-time 5 --resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" "$PUBLIC/ready" 2>/dev/null \
+    | /opt/bun/bun -e 'try{console.log(JSON.parse(await Bun.stdin.text()).version)}catch{console.log("")}'
+}
+# nginx reload is asynchronous: the master answers HUP and the workers pick up the new upstream a beat
+# later, so a single immediate GET can still be answered by the old slot. Wait for the version, not for a 200.
+wait_public_version() {
+  local expected="$1" served=""
+  for _ in $(seq 1 20); do
+    served="$(public_version || true)"
+    [ "$served" = "$expected" ] && return 0
+    sleep 1
+  done
+  printf 'la versión pública es v%s, se esperaba v%s\n' "${served:-?}" "$expected" >&2
+  return 1
+}
 
 wait_ready() {
   for _ in $(seq 1 30); do ready "$1" && return 0; sleep 1; done
@@ -73,7 +90,8 @@ case "$CMD" in
     sudo /usr/bin/systemctl restart "$APP@$idle"
     wait_ready "$idle" || { sudo /usr/bin/systemctl stop "$APP@$idle"; die "el slot $idle no quedó ready; sigue sirviendo $cur"; }
     switch_to "$idle"
-    public_ready || { switch_to "$cur"; die "$PUBLIC/ready no responde; volví a $cur"; }
+    want="$(cd "$dest" && /opt/bun/bun -e 'console.log((await Bun.file("package.json").json()).version)')"
+    wait_public_version "$want" || { switch_to "$cur"; die "$PUBLIC no sirve v$want; volví a $cur"; }
     echo "==> deploy ok: $SHA activo en $idle (el slot $cur queda arriba para rollback)"
     ;;
 esac
