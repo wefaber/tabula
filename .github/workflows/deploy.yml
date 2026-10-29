@@ -1,30 +1,79 @@
 name: Deploy
 
-# Push to main -> check, build, blue/green on the VPS. Runner: the wefaber org's self-hosted one.
-# No pull_request trigger: a self-hosted runner never runs PR code.
+# Push a main -> check, build y deploy blue/green en el VPS (https://gravidadev.wefaber.net).
+# Rollback desde la pipeline: Run workflow -> action: rollback (vuelve al slot anterior, que sigue arriba).
+# Runner: el self-hosted de la org wefaber. Sin trigger pull_request: un PR de un fork nunca corre aca.
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      action:
+        description: deploy (HEAD de main) o rollback (slot anterior)
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
 
 permissions:
   contents: read
 
+# Un deploy a la vez y sin cancelar el que corre: cancelar a mitad deja los slots a medio actualizar.
 concurrency:
   group: deploy-gravida-devpanel
   cancel-in-progress: false
 
+env:
+  DOMAIN: gravidadev.wefaber.net
+  TAILNET_IP: 100.113.187.112
+
 jobs:
   deploy:
+    name: ${{ inputs.action == 'rollback' && 'Rollback' || 'Deploy' }}
     runs-on: [self-hosted, wefaber]
     timeout-minutes: 15
+    environment:
+      name: gravidadev
+      url: https://gravidadev.wefaber.net
     steps:
       - uses: actions/checkout@v4
-      - name: Install
+
+      - name: Instalar
+        if: inputs.action != 'rollback'
         run: /opt/bun/bun install --frozen-lockfile
+
       - name: Check
+        if: inputs.action != 'rollback'
         run: /opt/bun/bun run check
+
       - name: Build
+        if: inputs.action != 'rollback'
         run: /opt/bun/bun run build
+
       - name: Deploy (blue/green)
+        if: inputs.action != 'rollback'
         run: bash deploy/gravida-devpanel.sh "$(git rev-parse --short HEAD)"
+
+      - name: Rollback
+        if: inputs.action == 'rollback'
+        run: bash deploy/gravida-devpanel.sh rollback
+
+      # No alcanza con que el workflow pase: se mira la pagina real y la version que responde.
+      - name: Verificar en el dominio real
+        run: |
+          base="https://$DOMAIN"
+          pin=(--resolve "$DOMAIN:443:$TAILNET_IP" --max-time 10 -fsS)
+          ready="$(curl "${pin[@]}" "$base/ready")"
+          echo "$ready"
+          curl "${pin[@]}" -o /dev/null -w 'GET / -> %{http_code}\n' "$base/"
+          if [ "${{ inputs.action }}" != 'rollback' ]; then
+            expected="$(/opt/bun/bun -e 'console.log((await Bun.file("package.json").json()).version)')"
+            served="$(printf '%s' "$ready" | /opt/bun/bun -e 'console.log(JSON.parse(await Bun.stdin.text()).version)')"
+            [ "$served" = "$expected" ] || { echo "::error::sirve v$served, se esperaba v$expected"; exit 1; }
+          fi
+          {
+            echo "### ${{ inputs.action || 'deploy' }} ok"
+            echo "- URL: $base"
+            echo "- Commit: \`$(git rev-parse --short HEAD)\`"
+            echo "- /ready: \`$ready\`"
+            bash deploy/gravida-devpanel.sh status | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
