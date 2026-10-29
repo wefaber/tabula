@@ -185,9 +185,8 @@ export function toGitGraph(
   })
 
   const edges = order.flatMap((sha) =>
-    raw
-      .get(sha)!
-      .parents.filter((p) => raw.has(p.sha))
+    (raw.get(sha)?.parents ?? [])
+      .filter((p) => raw.has(p.sha))
       .map((p) => ({ from: p.sha, to: sha })),
   )
 
