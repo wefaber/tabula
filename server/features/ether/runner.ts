@@ -1,5 +1,6 @@
 // Runs of Ask Ether: starts one on Hermes, pumps its events to the bus (`ether-<runId>`), keeps the live state so a
 // page that opens mid-run can catch up, and stores the final text. One live run per person, a few across the panel.
+import { randomBytes } from 'node:crypto'
 import { audit } from '../../audit'
 import type { User } from '../../auth'
 import { fail } from '../../graphql/builder'
@@ -36,6 +37,8 @@ const MAX_LIVE_RUNS = 4
 
 export interface ActiveRun {
   runId: string
+  /** Secret channel key: the bus channel is `ether-<streamKey>`, never derived from the run id. */
+  streamKey: string
   userId: number
   login: string
   thread: string
@@ -55,7 +58,7 @@ export interface RunnerOptions {
   keepMs?: number
 }
 
-export const channelOf = (runId: string) => `ether-${runId}`
+export const channelOf = (streamKey: string) => `ether-${streamKey}`
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s)
 
@@ -96,7 +99,11 @@ export class EtherRuns {
     for (const run of this.active.values()) run.abort.abort()
   }
 
-  async ask(user: User, thread: string, rawQuestion: string): Promise<string> {
+  async ask(
+    user: User,
+    thread: string,
+    rawQuestion: string,
+  ): Promise<{ runId: string; streamKey: string }> {
     const question = rawQuestion.trim()
     if (!THREAD_SLUG.test(thread))
       fail('BAD_INPUT', 'El hilo no es válido: probá abrir uno nuevo.')
@@ -155,8 +162,10 @@ export class EtherRuns {
       runId,
       session,
     })
+    const streamKey = randomBytes(16).toString('hex')
     const run: ActiveRun = {
       runId,
+      streamKey,
       userId: user.id,
       login: user.login,
       thread,
@@ -167,7 +176,7 @@ export class EtherRuns {
     }
     this.active.set(runId, run)
     void this.pump(run)
-    return runId
+    return { runId, streamKey }
   }
 
   get(runId: string): ActiveRun | undefined {
@@ -233,7 +242,7 @@ export class EtherRuns {
     if (next === run.state) return
     run.state = next
     run.seq += 1
-    this.deps.bus.emit(channelOf(run.runId), event.type, {
+    this.deps.bus.emit(channelOf(run.streamKey), event.type, {
       ...event,
       seq: run.seq,
     })

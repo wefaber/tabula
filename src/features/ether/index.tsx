@@ -43,7 +43,15 @@ interface Message {
 
 interface RunView extends RunState {
   runId: string
+  streamKey: string
   seq: number
+}
+
+interface Attach {
+  runId: string
+  /** Secret that names the SSE channel; the server gives it only to the owner and admins. */
+  streamKey: string
+  thread: string
 }
 
 interface Live {
@@ -109,6 +117,7 @@ const RUN = /* GraphQL */ `
   query EtherRun($runId: String!) {
     etherRun(runId: $runId) {
       runId
+      streamKey
       phase
       text
       tools {
@@ -124,7 +133,10 @@ const RUN = /* GraphQL */ `
 
 const ASK = /* GraphQL */ `
   mutation AskEther($thread: String!, $question: String!) {
-    askEther(thread: $thread, question: $question)
+    askEther(thread: $thread, question: $question) {
+      runId
+      streamKey
+    }
   }
 `
 
@@ -178,10 +190,7 @@ export default function Section() {
   })
 
   const [live, setLive] = useState<Live | null>(null)
-  const [attach, setAttach] = useState<{
-    runId: string
-    thread: string
-  } | null>(null)
+  const [attach, setAttach] = useState<Attach | null>(null)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [draft, setDraft] = useState('')
 
@@ -190,12 +199,21 @@ export default function Section() {
   const open = stored?.findLast(
     (m) => m.role === 'ether' && m.status === 'pending' && m.runId,
   )
-  if (!attach && !live && open?.runId) {
-    setLive({ thread, question: null, state: START_RUN })
-    setAttach({ runId: open.runId, thread })
-  }
+  // The stream key is only known from the stored view, so a reopened run is looked up first, then followed.
+  const resumeId = open?.runId
+  useEffect(() => {
+    if (attach || live || !resumeId) return
+    gql<{ etherRun: RunView | null }>(RUN, { runId: resumeId })
+      .then(({ etherRun }) => {
+        if (!etherRun) return
+        setLive({ thread, question: null, state: stateOf(etherRun) })
+        setAttach({ runId: resumeId, streamKey: etherRun.streamKey, thread })
+      })
+      .catch(() => {})
+  }, [attach, live, resumeId, thread])
   const runId = attach?.runId
   const runThread = attach?.thread
+  const streamKey = attach?.streamKey
 
   // Follow one run: buffer the bus while the stored view loads, then apply only what the view does not already cover.
   // When the run ends, the stored message is the record: reload the thread and the list, then drop the live copy.
@@ -222,7 +240,7 @@ export default function Section() {
       if (base === null) pending.push(ev)
       else if (ev.seq > base) apply(ev)
     }
-    const close = follow(`ether-${runId}`, {
+    const close = follow(`ether-${streamKey}`, {
       delta: onEvent,
       tool: onEvent,
       approval: onEvent,
@@ -247,14 +265,14 @@ export default function Section() {
         pending.length = 0
       })
     return close
-  }, [runId, runThread, qc])
+  }, [runId, runThread, streamKey, qc])
 
   const ask = useMutation({
     mutationFn: (question: string) =>
-      gql<{ askEther: string }>(ASK, { thread, question }).then((d) => ({
-        runId: d.askEther,
+      gql<{ askEther: { runId: string; streamKey: string } }>(ASK, {
         thread,
-      })),
+        question,
+      }).then((d) => ({ ...d.askEther, thread })),
     onMutate: (question) => {
       setFailure(null)
       setLive({ thread, question, state: START_RUN })

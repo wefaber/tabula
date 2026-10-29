@@ -39,6 +39,8 @@ const ToolStepRef = builder.objectRef<ToolStep>('EtherToolStep').implement({
 
 interface RunView {
   runId: string
+  /** Secret channel key for SSE; only handed to the run's owner and to admins. */
+  streamKey: string
   phase: string
   text: string
   tools: ToolStep[]
@@ -52,6 +54,7 @@ interface RunView {
 const RunRef = builder.objectRef<RunView>('EtherRun').implement({
   fields: (t) => ({
     runId: t.exposeString('runId'),
+    streamKey: t.exposeString('streamKey'),
     phase: t.exposeString('phase'),
     text: t.exposeString('text'),
     tools: t.field({ type: [ToolStepRef], resolve: (r) => r.tools }),
@@ -60,6 +63,18 @@ const RunRef = builder.objectRef<RunView>('EtherRun').implement({
     seq: t.exposeInt('seq'),
   }),
 })
+
+const AskRef = builder
+  .objectRef<{ runId: string; streamKey: string }>('EtherAsk')
+  .implement({
+    fields: (t) => ({
+      runId: t.exposeString('runId'),
+      streamKey: t.exposeString('streamKey', {
+        description:
+          'Clave secreta del canal SSE: solo la recibe quien pregunta.',
+      }),
+    }),
+  })
 
 const HealthRef = builder
   .objectRef<{ ok: boolean; reason: string }>('EtherHealth')
@@ -95,6 +110,7 @@ builder.queryFields((t) => ({
       const isAdmin = ctx.user.role === 'admin'
       return {
         runId,
+        streamKey: run.streamKey,
         phase: run.state.phase,
         text: run.state.text,
         tools: run.state.tools,
@@ -113,7 +129,8 @@ builder.queryFields((t) => ({
 }))
 
 builder.mutationFields((t) => ({
-  askEther: t.string({
+  askEther: t.field({
+    type: AskRef,
     description:
       'Arranca una consulta a Ether en el hilo dado. Devuelve el runId; los eventos llegan por SSE.',
     args: {

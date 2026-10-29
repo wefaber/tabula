@@ -290,7 +290,7 @@ describe('runner', () => {
 
   test('ask guarda pregunta y respuesta por usuario, y audita sin la clave', async () => {
     const { deps, runs, faku } = harness()
-    const runId = await runs.ask(faku, 'mi-hilo', '¿cómo está el stack?')
+    const { runId } = await runs.ask(faku, 'mi-hilo', '¿cómo está el stack?')
     await until(() => runs.get(runId)?.state.phase === 'completed')
     const [thread] = listThreads(deps.db, faku.id)
     expect(thread?.slug).toBe('mi-hilo')
@@ -305,14 +305,14 @@ describe('runner', () => {
 
   test('los hilos son por usuario', async () => {
     const { deps, runs, faku, pablo } = harness()
-    const runId = await runs.ask(faku, 'privado', 'hola')
+    const { runId } = await runs.ask(faku, 'privado', 'hola')
     await until(() => runs.get(runId)?.state.phase === 'completed')
     expect(listMessages(deps.db, pablo.id, 'privado')).toEqual([])
   })
 
   test('una aprobación queda esperando y el admin la resuelve', async () => {
     const { runs, faku } = harness()
-    const runId = await runs.ask(faku, 'h2', 'reiniciá back')
+    const { runId } = await runs.ask(faku, 'h2', 'reiniciá back')
     await until(() => runs.get(runId)?.state.phase === 'waiting_for_approval')
     await runs.approve(faku, runId, false)
     await until(() => runs.get(runId)?.state.phase === 'completed')
@@ -321,7 +321,7 @@ describe('runner', () => {
 
   test('no se arranca una segunda consulta mientras hay una del mismo usuario', async () => {
     const { runs, faku } = harness()
-    const runId = await runs.ask(faku, 'h3', 'reiniciá back')
+    const { runId } = await runs.ask(faku, 'h3', 'reiniciá back')
     await until(() => runs.get(runId)?.state.phase === 'waiting_for_approval')
     await expect(runs.ask(faku, 'h3', 'otra')).rejects.toThrow(/en curso/)
   })
@@ -351,6 +351,46 @@ describe('runner', () => {
     )
     expect(prune(deps.db, new Date('2026-10-28T00:00:00Z'))).toBe(1)
     expect(listThreads(deps.db, faku.id)).toEqual([])
+  })
+})
+
+describe('canal secreto', () => {
+  test('el stream sale por una clave secreta, no por el runId', async () => {
+    const deps = testDeps()
+    const faku = userByLogin(deps.db, 'faku@x')!
+    const runs = new EtherRuns(deps, fixtureEther(), { pollMs: 5 })
+    const { runId, streamKey } = await runs.ask(faku, 'canal', 'hola')
+    expect(streamKey).toMatch(/^[0-9a-f]{32}$/)
+    expect(streamKey).not.toContain(runId)
+    const byRunId: unknown[] = []
+    const bySecret: unknown[] = []
+    deps.bus.on(`ether-${runId}`, (_e, d) => byRunId.push(d))
+    deps.bus.on(`ether-${streamKey}`, (_e, d) => bySecret.push(d))
+    await until(() => runs.get(runId)?.state.phase === 'completed')
+    expect(byRunId).toEqual([])
+    expect(bySecret.length).toBeGreaterThan(0)
+  })
+
+  test('la clave solo llega al dueño y a un admin', async () => {
+    const deps = testDeps(
+      'faku@x:admin:Faku,pablo@x:member:Pablo,ana@x:member:Ana',
+    )
+    const faku = userByLogin(deps.db, 'faku@x')!
+    const pablo = userByLogin(deps.db, 'pablo@x')!
+    const runs = runsFor(deps)
+    const { runId, streamKey } = await runs.ask(pablo, 'clave', 'hola')
+    const q = 'query($r: String!) { etherRun(runId: $r) { streamKey } }'
+    const as = (user: typeof pablo) =>
+      execute({
+        schema,
+        document: parse(q),
+        variableValues: { r: runId },
+        contextValue: { ...deps, user, method: 'token' },
+      })
+    expect((await as(pablo)).data?.etherRun).toEqual({ streamKey })
+    expect((await as(faku)).data?.etherRun).toEqual({ streamKey })
+    expect((await as(userByLogin(deps.db, 'ana@x')!)).data?.etherRun).toBeNull()
+    await until(() => runs.get(runId)?.state.phase === 'completed')
   })
 })
 
@@ -387,7 +427,7 @@ describe('permisos en GraphQL', () => {
     const faku = userByLogin(deps.db, 'faku@x')!
     const pablo = userByLogin(deps.db, 'pablo@x')!
     const runs = runsFor(deps)
-    const runId = await runs.ask(pablo, 'perm', 'reiniciá back')
+    const { runId } = await runs.ask(pablo, 'perm', 'reiniciá back')
     await until(() => runs.get(runId)?.state.phase === 'waiting_for_approval')
     const q = 'query($r: String!) { etherRun(runId: $r) { phase approval } }'
     const run = (user: typeof pablo) =>
