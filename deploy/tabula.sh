@@ -29,6 +29,9 @@ active() { cat "$STATE" 2>/dev/null || echo green; }   # first deploy lands on b
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 # The real domain, as a tailnet client reaches it: SNI + Host intact, address pinned to the VPS tailnet IP.
 public_ready() { curl -fsS --max-time 5 --resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" "$PUBLIC/ready" >/dev/null; }
+# Despues de `systemctl reload nginx` los workers viejos siguen atendiendo conexiones un instante:
+# una request suelta puede pegarle todavia al slot anterior. Reintentar hasta ~15s.
+wait_public() { for _ in $(seq 1 15); do public_ready && return 0; sleep 1; done; return 1; }
 ready() { curl -fsS --max-time 5 "http://127.0.0.1:$(port "$1")/ready" >/dev/null; }
 
 wait_ready() {
@@ -54,7 +57,7 @@ case "$CMD" in
     prev="$(other "$(active)")"
     ready "$prev" || die "el slot $prev no responde: no hay a donde volver"
     switch_to "$prev"
-    public_ready || die "rollback hecho pero $PUBLIC/ready no responde"
+    wait_public || die "rollback hecho pero $PUBLIC/ready no responde"
     echo "rollback ok -> $prev"
     ;;
   deploy | *)
@@ -73,7 +76,7 @@ case "$CMD" in
     sudo /usr/bin/systemctl restart "$APP@$idle"
     wait_ready "$idle" || { sudo /usr/bin/systemctl stop "$APP@$idle"; die "el slot $idle no quedó ready; sigue sirviendo $cur"; }
     switch_to "$idle"
-    public_ready || { switch_to "$cur"; die "$PUBLIC/ready no responde; volví a $cur"; }
+    wait_public || { switch_to "$cur"; die "$PUBLIC/ready no responde; volví a $cur"; }
     echo "==> deploy ok: $SHA activo en $idle (el slot $cur queda arriba para rollback)"
     ;;
 esac
