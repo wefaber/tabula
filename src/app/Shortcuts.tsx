@@ -1,25 +1,21 @@
-import { Dialog, isTyping, Kbd } from '@wefaber/ui'
+import { Button, Dialog, isTyping, Kbd } from '@wefaber/ui'
 import { useEffect, useState } from 'react'
 import { SECTIONS } from '@/features/registry'
-
-/** What the help dialog lists: the shell's own shortcuts and the ones sections add. */
-const GLOBAL: { keys: string; what: string }[] = [
-  {
-    keys: '1',
-    what: 'Ir a la sección por número (1 a 7, en el orden del menú)',
-  },
-  { keys: '[', what: 'Sección anterior' },
-  { keys: ']', what: 'Sección siguiente' },
-  { keys: '?', what: 'Mostrar estos atajos' },
-  {
-    keys: 'Enter',
-    what: 'Enviar la pregunta en Ask Ether (Shift+Enter agrega una línea)',
-  },
-]
+import { useT } from '@/lib/i18n'
+import { openOnboarding } from './onboardingEvents'
 
 /** Hash navigation by keyboard plus the help dialog. Ignored while typing and with any modifier held. */
 export function Shortcuts({ active }: { active: string }) {
+  const t = useT()
   const [help, setHelp] = useState(false)
+  /** What the help dialog lists: the shell's own shortcuts and the ones sections add. */
+  const GLOBAL: { keys: string; what: string }[] = [
+    { keys: '1', what: t('shortcuts.section') },
+    { keys: '[', what: t('shortcuts.prev') },
+    { keys: ']', what: t('shortcuts.next') },
+    { keys: '?', what: t('shortcuts.help') },
+    { keys: 'Enter', what: t('shortcuts.send') },
+  ]
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -43,8 +39,8 @@ export function Shortcuts({ active }: { active: string }) {
     <Dialog
       open={help}
       onClose={() => setHelp(false)}
-      title="Atajos de teclado"
-      closeLabel="Cerrar"
+      title={t('shortcuts.title')}
+      closeLabel={t('common.close')}
     >
       <ul className="flex flex-col gap-2">
         {GLOBAL.map(({ keys, what }) => (
@@ -54,6 +50,17 @@ export function Shortcuts({ active }: { active: string }) {
           </li>
         ))}
       </ul>
+      <div className="flex justify-end">
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setHelp(false)
+            openOnboarding()
+          }}
+        >
+          {t('shortcuts.tour')}
+        </Button>
+      </div>
     </Dialog>
   )
 }
