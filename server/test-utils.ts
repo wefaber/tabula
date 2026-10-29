@@ -14,10 +14,10 @@ export function testDeps(
 ): Deps {
   const config = loadConfig(
     {
-      DEVPANEL_FIXTURES: '1',
-      DEVPANEL_USERS: users,
+      TABULA_FIXTURES: '1',
+      TABULA_USERS: users,
       DATA_DIR: ':memory:',
-      DEVPANEL_TRUST_SERVE_HEADER: '1',
+      TABULA_TRUST_SERVE_HEADER: '1',
     },
     '0.0.0-test',
   )
