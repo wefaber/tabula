@@ -1,6 +1,7 @@
-import { Dialog, isTyping, Kbd } from '@wefaber/ui'
+import { Button, Dialog, isTyping, Kbd } from '@wefaber/ui'
 import { useEffect, useState } from 'react'
 import { SECTIONS } from '@/features/registry'
+import { openOnboarding } from './onboardingEvents'
 
 /** What the help dialog lists: the shell's own shortcuts and the ones sections add. */
 const GLOBAL: { keys: string; what: string }[] = [
@@ -54,6 +55,17 @@ export function Shortcuts({ active }: { active: string }) {
           </li>
         ))}
       </ul>
+      <div className="flex justify-end">
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setHelp(false)
+            openOnboarding()
+          }}
+        >
+          Ver recorrido
+        </Button>
+      </div>
     </Dialog>
   )
 }

@@ -12,6 +12,7 @@ import { SECTIONS } from '@/features/registry'
 import { ApiError, gql } from '@/lib/api'
 import { Loader } from './Loader'
 import { Login } from './Login'
+import { Onboarding } from './Onboarding'
 import { SectionBoundary } from './SectionBoundary'
 import { Shortcuts } from './Shortcuts'
 
@@ -179,6 +180,7 @@ export default function App() {
         <span className="tabular">v{system.version}</span>
       </footer>
       <Shortcuts active={active} />
+      <Onboarding />
       <BackToTop />
     </div>
   )
