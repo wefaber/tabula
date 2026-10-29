@@ -25,8 +25,9 @@ Detalle en [ARCHITECTURE.md](ARCHITECTURE.md#flujo-de-ramas).
 
 ```bash
 bun install
-bun run dev:api      # API con adapters de prueba (sin Podman, DB ni GitHub), :4171
-bun run dev          # Vite en :5173, proxy a :4171
+bun run dev          # API con adapters de prueba (sin Podman, DB ni GitHub) en :4171 y Vite en :5173, juntos
+bun run dev:api      # solo la API
+bun run dev:web      # solo Vite (proxy a :4171; `API_PORT` cambia el puerto)
 bun run check        # format + lint + typecheck + test (lo mismo corre el CI)
 ```
 

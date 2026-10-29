@@ -4,7 +4,8 @@
   "version": "0.6.2",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bun scripts/dev.ts",
+    "dev:web": "vite",
     "dev:api": "TABULA_FIXTURES=1 bun --watch server/index.ts",
     "build": "tsc -b && vite build",
     "start": "bun server/index.ts",
