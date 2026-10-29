@@ -1,6 +1,6 @@
 # Gravida Dev Panel
 
-Panel de desarrollo del stack de Gravida (NEXUS) para Faku, Pablo y Jean. Tailnet-only.
+Panel de desarrollo del stack de Gravida (NEXUS) para Faku, Pablo y Jean. URL: **https://gravidadev.wefaber.net** (solo tailnet).
 
 - Estado de las APIs y de los containers (`nexus-test`: db, back, front)
 - Últimas llamadas a la API
@@ -20,9 +20,10 @@ bun run dev          # Vite en :5173, proxy a :4171
 bun run check        # format + lint + typecheck + test (lo mismo corre el CI)
 ```
 
-`DEVPANEL_DEV_LOGIN=dev@local` simula la identidad que inyecta Tailscale Serve (ignorado en producción).
+`DEVPANEL_DEV_LOGIN=dev@local` simula la identidad que resolvería el whois del tailnet (ignorado en producción).
 
 ## Acceso
 
-Tailnet: entra solo, por el header `Tailscale-User-Login`, si el login está en `DEVPANEL_USERS`
-(`login:rol:Nombre,...`). Fuera del tailnet: token personal (sección Acceso, o `bun run token create <login>` en el server).
+Tailnet: entrás solo. nginx escucha en la IP del tailnet, el panel resuelve de quién es el dispositivo (`tailscale whois`) y
+lo compara con `DEVPANEL_USERS` (`login:rol:Nombre,...`). Fuera del tailnet no hay ruta: usá un token personal desde un
+dispositivo que sí llegue (sección Acceso, o `bun run token create <login>` en el server).
