@@ -3,7 +3,7 @@
 | Sección                    | Versión | Estado    |
 | -------------------------- | ------- | --------- |
 | Base (auth, shell, deploy) | v0.1.0  | hecho     |
-| Containers y energía       | v0.2.0  | pendiente |
+| Containers y energía       | v0.2.0  | hecho     |
 | APIs y últimas llamadas    | v0.3.0  | pendiente |
 | Base de datos              | v0.4.0  | pendiente |
 | Git                        | v0.5.0  | pendiente |
