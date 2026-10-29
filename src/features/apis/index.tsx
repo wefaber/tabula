@@ -1,4 +1,5 @@
 // APIs: estado de cada api/*.php y de la DB, con su historial de 24 h. Se actualiza por SSE sin mover la grilla.
+import { Loader } from '@/app/Loader'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Circle, Minus, X } from 'lucide-react'
 import { Chip, EmptyState, Field, Tile } from '@wefaber/ui'
@@ -183,7 +184,7 @@ export default function Section() {
 
       <Tile title="Endpoints">
         {status.isPending ? (
-          <p className="text-muted">Cargando…</p>
+          <Loader />
         ) : status.error ? (
           <p role="alert" className="text-danger">
             No se pudo leer el estado de las APIs ({status.error.message}).{' '}

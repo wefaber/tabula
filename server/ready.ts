@@ -3,6 +3,12 @@
 import { pendingMigrations } from './db'
 import type { Deps } from './deps'
 
+/** A module that cannot do its job right now, and what was detected. */
+export interface Problem {
+  module: string
+  detail: string
+}
+
 export interface Readiness {
   ok: boolean
   db: boolean
@@ -10,6 +16,7 @@ export interface Readiness {
   podman: boolean
   fixtures: boolean
   version: string
+  problems: Problem[]
 }
 
 export async function readiness({
@@ -25,6 +32,30 @@ export async function readiness({
     dbOk = true
   } catch {}
   const podmanOk = await podman.ping()
+  const problems: Problem[] = []
+  if (!dbOk)
+    problems.push({
+      module: 'Panel',
+      detail: 'La base propia (SQLite) no responde.',
+    })
+  else if (pending > 0)
+    problems.push({
+      module: 'Panel',
+      detail: `${pending} migraciones sin aplicar.`,
+    })
+  if (!podmanOk)
+    problems.push({
+      module: 'Containers',
+      detail: 'Podman no responde en el socket.',
+    })
+  if (!config.fixtures) {
+    if (!config.nexus.dbPassword)
+      problems.push({ module: 'Base de datos', detail: 'Falta DB_PASSWORD.' })
+    if (!config.github.token)
+      problems.push({ module: 'Git', detail: 'Falta GITHUB_TOKEN.' })
+    if (!config.ether.key)
+      problems.push({ module: 'Ask Ether', detail: 'Falta ETHER_KEY.' })
+  }
   return {
     ok: dbOk && pending === 0 && podmanOk,
     db: dbOk,
@@ -32,5 +63,6 @@ export async function readiness({
     podman: podmanOk,
     fixtures: config.fixtures,
     version: config.version,
+    problems,
   }
 }

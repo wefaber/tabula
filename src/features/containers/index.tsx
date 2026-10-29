@@ -1,4 +1,5 @@
 // Containers y energía: one tile per service of the nexus stack, power buttons and live logs in a Dock.
+import { Loader } from '@/app/Loader'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Button,
@@ -171,7 +172,7 @@ export default function Containers() {
       ) : null}
 
       {data.isPending ? (
-        <p className="text-muted">Cargando…</p>
+        <Loader />
       ) : data.error ? (
         <EmptyState>
           <span role="alert" className="text-danger">

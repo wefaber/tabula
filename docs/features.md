@@ -8,6 +8,8 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Acceso**: tailnet por whois (nginx pasa la IP del dispositivo, tailscaled dice de quién es) contra la lista `TABULA_USERS`, o token personal (`tbl_...`, guardado como sha256) que abre una sesión por cookie. Ver [ADR 0002](adr/0002-tailnet-whois-tokens.md).
 - **Roles**: `admin` (Faku) y `member` (Pablo, Jean). Hoy ambos ven todo; lo destructivo y las aprobaciones de Ether son solo `admin`.
 - **Sección Acceso**: crear y revocar tokens propios (admin revoca los de cualquiera). Revocar cierra las sesiones abiertas con ese token.
+- **Atajos**: `1` a `7` cambian de sección, `[` y `]` van a la anterior o siguiente, `?` lista los atajos.
+- **Fallas a la vista**: el header lista los módulos con problemas y qué se detectó (Podman, migraciones, falta de `DB_PASSWORD`, `GITHUB_TOKEN` o `ETHER_KEY`); una sección que rompe en el navegador muestra su error sin tumbar el resto.
 - **Vivo**: eventos por SSE (`/sse/:channel`) para estado, llamadas y respuestas de Ether.
 - **Endpoints**: `/health`, `/ready` (devuelve la versión que corre), `/graphql` con límites de profundidad (8) y largo (4000).
 - **Deploy**: blue/green en el VPS, verificado contra el dominio real y con rollback. Ver [ARCHITECTURE.md](../ARCHITECTURE.md).
@@ -48,7 +50,8 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - Preguntas sobre el sistema a Ether (perfil Hermes `gravida`). Cada pregunta lleva una foto del estado: containers, errores recientes de API, tag activo.
 - Hilos por usuario, con respuesta en streaming, pasos de herramientas y botón para frenar el run. Historial 30 días.
 - **Aprobaciones**: si Ether pide ejecutar algo, solo `admin` lo ve y lo aprueba o rechaza.
-- **Compartir respuesta**: link de solo lectura a una respuesta puntual (`#ether?s=<token>`); el hilo queda privado y el link se puede revocar.
+- **Responder a una parte**: seleccionás texto de una respuesta y la siguiente pregunta se manda como `Q: <cita>` y `A: <tu respuesta>`.
+- **Compartir respuesta**: un modal crea un link de solo lectura a una respuesta puntual (`#ether?s=<token>`); el hilo queda privado y el link se puede revocar.
 - El canal SSE de cada run usa una clave secreta que solo reciben el dueño y los admins.
 
 ## Pendiente
