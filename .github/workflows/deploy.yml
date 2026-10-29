@@ -69,7 +69,16 @@ jobs:
           curl "${pin[@]}" -o /dev/null -w 'GET / -> %{http_code}\n' "$base/"
           if [ "${{ inputs.action }}" != 'rollback' ]; then
             expected="$(/opt/bun/bun -e 'console.log((await Bun.file("package.json").json()).version)')"
-            served="$(printf '%s' "$ready" | /opt/bun/bun -e 'console.log(JSON.parse(await Bun.stdin.text()).version)')"
+            version() { printf '%s' "$1" | /opt/bun/bun -e 'console.log(JSON.parse(await Bun.stdin.text()).version)'; }
+            # nginx recarga async: despues del switch los workers viejos pueden contestar un instante con el
+            # slot anterior y un 200 no dice nada. Se reintenta la version un rato antes de gritar error.
+            served="$(version "$ready")"
+            for _ in $(seq 1 30); do
+              [ "$served" = "$expected" ] && break
+              sleep 1
+              ready="$(curl "${pin[@]}" "$base/ready")"
+              served="$(version "$ready")"
+            done
             [ "$served" = "$expected" ] || { echo "::error::sirve v$served, se esperaba v$expected"; exit 1; }
           fi
           {

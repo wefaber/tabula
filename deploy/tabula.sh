@@ -31,6 +31,22 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 public_ready() { curl -fsS --max-time 5 --resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" "$PUBLIC/ready" >/dev/null; }
 ready() { curl -fsS --max-time 5 "http://127.0.0.1:$(port "$1")/ready" >/dev/null; }
 
+# Version que el dominio publico sirve ahora. `nginx -s reload` es asincronico: los workers viejos siguen
+# atendiendo un instante con el upstream anterior, asi que despues de switch_to se consulta en loop.
+public_version() {
+  curl -fsS --max-time 5 --resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" "$PUBLIC/ready" 2>/dev/null |
+    /opt/bun/bun -e 'console.log(JSON.parse(await Bun.stdin.text()).version)' 2>/dev/null || true
+}
+
+wait_public_version() {
+  local want="$1"
+  for _ in $(seq 1 30); do
+    [ "$(public_version)" = "$want" ] && return 0
+    sleep 1
+  done
+  return 1
+}
+
 wait_ready() {
   for _ in $(seq 1 30); do ready "$1" && return 0; sleep 1; done
   return 1
@@ -73,7 +89,10 @@ case "$CMD" in
     sudo /usr/bin/systemctl restart "$APP@$idle"
     wait_ready "$idle" || { sudo /usr/bin/systemctl stop "$APP@$idle"; die "el slot $idle no quedó ready; sigue sirviendo $cur"; }
     switch_to "$idle"
-    public_ready || { switch_to "$cur"; die "$PUBLIC/ready no responde; volví a $cur"; }
-    echo "==> deploy ok: $SHA activo en $idle (el slot $cur queda arriba para rollback)"
+    # "deploy ok" recien cuando el dominio publico sirve la version nueva: nginx recarga async y hasta que
+    # los workers viejos terminan, el upstream anterior sigue contestando con 200.
+    expected="$(/opt/bun/bun -e "console.log((await Bun.file('$ROOT/package.json').json()).version)")"
+    wait_public_version "$expected" || { switch_to "$cur"; die "$PUBLIC sirve v$(public_version), se esperaba v$expected; volví a $cur"; }
+    echo "==> deploy ok: $SHA v$expected activo en $idle (el slot $cur queda arriba para rollback)"
     ;;
 esac
