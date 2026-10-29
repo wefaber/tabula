@@ -11,6 +11,7 @@ import {
   fixtureEther,
   approvalSummary,
   FIXTURE_APPROVED,
+  FIXTURE_DIAGRAM,
 } from '../client'
 import { EtherRuns } from '../runner'
 import {
@@ -92,6 +93,16 @@ describe('input y snapshot', () => {
     )
     expect(input.match(/<\/snapshot>/g)?.length).toBe(1)
     expect(input.match(/<snapshot>/g)?.length).toBe(1)
+  })
+
+  test('el prompt le enseña a Ether a dibujar con Mermaid cuando ayuda', () => {
+    const input = buildInput('explicame la arquitectura', SNAP)
+    expect(input).toContain('```mermaid')
+    expect(input).toContain('flowchart LR')
+    expect(input).toContain('sequenceDiagram')
+    expect(input.indexOf('```mermaid')).toBeLessThan(
+      input.indexOf('<snapshot>'),
+    )
   })
 
   test('texto libre del snapshot queda en una línea', () => {
@@ -277,6 +288,16 @@ describe('clientes', () => {
       output: FIXTURE_APPROVED,
     })
   })
+})
+
+test('el fixture responde con un diagrama cuando la pregunta lo pide', async () => {
+  const fx = fixtureEther()
+  const id = await fx.start('¿Me dibujás un diagrama del stack?', 's')
+  let text = ''
+  for await (const ev of fx.events(id, new AbortController().signal))
+    if (ev.type === 'done') text = ev.output
+  expect(text).toBe(FIXTURE_DIAGRAM)
+  expect(text).toContain('```mermaid')
 })
 
 describe('runner', () => {
