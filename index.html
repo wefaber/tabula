@@ -1,10 +1,35 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="application-name" content="Tabula" />
+    <meta
+      name="description"
+      content="Tabula: panel de operación del stack de Gravida, por WeFaber."
+    />
+    <meta name="theme-color" content="#0b2a14" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>gravida-devpanel</title>
+    <meta name="robots" content="noindex" />
+    <title>Tabula · WeFaber</title>
+    <script>
+      // Preferences before first paint, from the local copy written by src/lib/prefs.ts. Same rules as applyPrefs.
+      try {
+        const root = document.documentElement
+        const theme = localStorage.getItem('tabula-theme')
+        const light =
+          theme === 'light' ||
+          (theme === 'system' &&
+            matchMedia('(prefers-color-scheme: light)').matches)
+        root.dataset.theme = light ? 'light' : 'dark'
+        const prefs = JSON.parse(localStorage.getItem('tabula-prefs') || '{}')
+        if (prefs.contrast === 'high') root.dataset.contrast = 'high'
+        if (prefs.scale) root.style.setProperty('--ui-scale', prefs.scale / 100)
+        if (prefs.language === 'en') root.lang = 'en'
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
