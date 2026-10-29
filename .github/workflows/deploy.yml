@@ -25,6 +25,8 @@ concurrency:
 env:
   DOMAIN: tabula.wefaber.net
   TAILNET_IP: 100.113.187.112
+  # tailscaled es dueño de la IP del tailnet en :443; nginx sirve en :9443 (ADR del panel).
+  PUBLIC_PORT: 9443
 
 jobs:
   deploy:
@@ -33,7 +35,7 @@ jobs:
     timeout-minutes: 15
     environment:
       name: tabula
-      url: https://tabula.wefaber.net
+      url: https://tabula.wefaber.net:9443
     steps:
       - uses: actions/checkout@v4
 
@@ -60,8 +62,8 @@ jobs:
       # No alcanza con que el workflow pase: se mira la pagina real y la version que responde.
       - name: Verificar en el dominio real
         run: |
-          base="https://$DOMAIN"
-          pin=(--resolve "$DOMAIN:443:$TAILNET_IP" --max-time 10 -fsS)
+          base="https://$DOMAIN:$PUBLIC_PORT"
+          pin=(--resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" --max-time 10 -fsS)
           ready="$(curl "${pin[@]}" "$base/ready")"
           echo "$ready"
           curl "${pin[@]}" -o /dev/null -w 'GET / -> %{http_code}\n' "$base/"
