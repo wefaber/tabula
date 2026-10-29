@@ -1,0 +1,34 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-tabula
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # El deploy escribe en /var/www: tiene que ser el runner del VPS. Sin la
+    # etiqueta, cualquier self-hosted de la org lo toma y falla por rutas.
+    runs-on: [self-hosted, vps-wefaber]
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install
+        run: /opt/bun/bun install --frozen-lockfile
+
+      - name: Lint
+        run: /opt/bun/bun run lint
+
+      # El script arma el release, hace el swap del symlink y verifica contra el
+      # bloque loopback del vhost (tabula es tailnet-only, no hay hostname público).
+      - name: Deploy (release + symlink, health check, rollback)
+        run: bash deploy/deploy.sh
+        env:
+          BUN: /opt/bun/bun
+          BUILD_SHA: ${{ github.sha }}
