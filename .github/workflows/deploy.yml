@@ -69,7 +69,15 @@ jobs:
           curl "${pin[@]}" -o /dev/null -w 'GET / -> %{http_code}\n' "$base/"
           if [ "${{ inputs.action }}" != 'rollback' ]; then
             expected="$(/opt/bun/bun -e 'console.log((await Bun.file("package.json").json()).version)')"
-            served="$(printf '%s' "$ready" | /opt/bun/bun -e 'console.log(JSON.parse(await Bun.stdin.text()).version)')"
+            # nginx reload is asynchronous, so the first GET can still hit the previous slot: poll the
+            # version for a few seconds before calling it a failure.
+            served=""
+            for _ in $(seq 1 15); do
+              served="$(printf '%s' "$(curl "${pin[@]}" "$base/ready" || true)" \
+                | /opt/bun/bun -e 'try{console.log(JSON.parse(await Bun.stdin.text()).version)}catch{console.log("")}')"
+              [ "$served" = "$expected" ] && break
+              sleep 1
+            done
             [ "$served" = "$expected" ] || { echo "::error::sirve v$served, se esperaba v$expected"; exit 1; }
           fi
           {
