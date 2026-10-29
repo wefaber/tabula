@@ -1,4 +1,4 @@
-// Runs of Ask Ether: starts one on Hermes, pumps its events to the bus (`ether-<runId>`), keeps the live state so a
+// Runs of Ask Ether: starts one on DeepSeek, pumps its events to the bus (`ether-<runId>`), keeps the live state so a
 // page that opens mid-run can catch up, and stores the final text. One live run per person, a few across the panel.
 import { randomBytes } from 'node:crypto'
 import { audit } from '../../audit'
@@ -15,17 +15,19 @@ import {
 import type { MessageSources } from '../../../shared/etherRefs'
 import {
   EtherError,
-  etherClient,
+  deepseekEther,
   fixtureEther,
   type EtherClient,
 } from './client'
+import { collectKnowledge, type KnowledgeSource } from './knowledge'
 import { parseRefs, resolveRefs } from './refs'
-import { buildInput, collectSnapshot } from './snapshot'
+import { buildInput, collectSnapshot, etherSystem } from './snapshot'
 import {
   addMessage,
   closeDangling,
   finishMessage,
   prune,
+  recentTurns,
   sessionId,
   setMessageRun,
   THREAD_SLUG,
@@ -46,6 +48,8 @@ export interface ActiveRun {
   thread: string
   messageId: number
   state: RunState
+  /** Repo files that went into the prompt: shown as the steps Ether "read". */
+  reads: KnowledgeSource[]
   /** Photo taken when the question was sent; the tool steps are added when the run ends. */
   sources: MessageSources
   /** Counts emitted events so a late subscriber can drop what its snapshot already covers. */
@@ -139,6 +143,8 @@ export class EtherRuns {
     // Refs are checked before anything is written: an unknown id refuses the question without a message in the thread.
     const snapshot = await collectSnapshot(this.deps, at)
     const referenced = resolveRefs(this.deps, refs, snapshot)
+    const knowledge = await collectKnowledge(this.deps, question)
+    const turns = recentTurns(db, user.id, thread)
     const threadId = touchThread(db, user.id, thread, titleOf(question), at)
     addMessage(db, threadId, 'user', question, at)
     const messageId = addMessage(db, threadId, 'ether', '', at, {
@@ -149,8 +155,13 @@ export class EtherRuns {
     let runId: string
     try {
       runId = await this.client.start(
-        buildInput(question, snapshot, referenced),
+        buildInput(question, snapshot, referenced, {
+          structure: knowledge.structure,
+          sources: knowledge.sources,
+          turns,
+        }),
         session,
+        etherSystem(),
       )
     } catch (e) {
       const reason =
@@ -182,6 +193,7 @@ export class EtherRuns {
       thread,
       messageId,
       state: START_RUN,
+      reads: knowledge.sources,
       sources: {
         at: snapshot.at,
         activeTag: snapshot.activeTag,
@@ -253,7 +265,7 @@ export class EtherRuns {
       return failFrom(e)
     }
     audit(this.deps.db, user, 'ether.stop', runId, { owner: run.login })
-    // Hermes ends the stream with run.cancelled; if it does not, close the run here instead of leaving it hanging.
+    // The client ends the stream with a cancelled run; if it does not, close the run here instead of leaving it hanging.
     setTimeout(() => {
       if (isTerminal(run.state.phase)) return
       this.emit(run, { type: 'done', status: 'cancelled', output: '' })
@@ -273,6 +285,12 @@ export class EtherRuns {
   }
 
   private async pump(run: ActiveRun): Promise<void> {
+    for (const s of run.reads)
+      this.emit(run, {
+        type: 'tool',
+        tool: 'leyó',
+        preview: `${s.repo}: ${s.path}`,
+      })
     const timer = setTimeout(() => {
       this.emit(run, {
         type: 'error',
@@ -390,13 +408,13 @@ export class EtherRuns {
 
 const instances = new WeakMap<Deps['db'], EtherRuns>()
 
-/** One runner per database, built on first use: the fixture client when `TABULA_FIXTURES=1`, Hermes otherwise. */
+/** One runner per database, built on first use: the fixture client when `TABULA_FIXTURES=1`, DeepSeek otherwise. */
 export function runsFor(deps: Deps): EtherRuns {
   let runs = instances.get(deps.db)
   if (!runs) {
     const client = deps.config.fixtures
       ? fixtureEther({ delayMs: 60 })
-      : etherClient(deps.config.ether)
+      : deepseekEther(deps.config.ether)
     runs = new EtherRuns(deps, client)
     instances.set(deps.db, runs)
   }

@@ -30,7 +30,10 @@ const deps: Deps = {
     : tailscaleWhois(config.tailscaleSocket),
   github: config.fixtures
     ? fixtureGithub(config.github.repo)
-    : githubClient(config.github.repo, config.github.token),
+    : githubClient(
+        config.github.repo,
+        (owner) => config.github.tokens[owner.toLowerCase()] ?? '',
+      ),
 }
 
 const stops = features.flatMap((f) => (f.start ? [f.start(deps)] : []))

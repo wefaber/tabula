@@ -88,6 +88,26 @@ export function listMessages(
     }))
 }
 
+/** The last answered exchanges of a thread, oldest first: what a follow-up question needs to make sense. */
+export function recentTurns(
+  db: Database,
+  userId: number,
+  slug: string,
+  max = 3,
+  clipAnswer = 900,
+): { q: string; a: string }[] {
+  const turns: { q: string; a: string }[] = []
+  let question: string | null = null
+  for (const m of listMessages(db, userId, slug)) {
+    if (m.role === 'user') question = m.body
+    else if (question !== null && m.status === 'done' && m.body) {
+      turns.push({ q: question, a: m.body.slice(0, clipAnswer) })
+      question = null
+    }
+  }
+  return turns.slice(-max)
+}
+
 /** Finds the thread or opens it; touching it moves it to the top of the list. */
 export function touchThread(
   db: Database,

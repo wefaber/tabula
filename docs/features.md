@@ -9,7 +9,7 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Roles**: `admin` (Faku) y `member` (Pablo, Jean). Hoy ambos ven todo; lo destructivo y las aprobaciones de Ether son solo `admin`.
 - **Sección Acceso**: crear y revocar tokens propios (admin revoca los de cualquiera). Revocar cierra las sesiones abiertas con ese token.
 - **Atajos**: `1` a `7` cambian de sección, `[` y `]` van a la anterior o siguiente, `?` lista los atajos.
-- **Fallas a la vista**: el header lista los módulos con problemas y qué se detectó (Podman, migraciones, falta de `DB_PASSWORD`, `GITHUB_TOKEN` o `ETHER_KEY`); una sección que rompe en el navegador muestra su error sin tumbar el resto.
+- **Fallas a la vista**: el header lista los módulos con problemas y qué se detectó (Podman, migraciones, falta de `DB_PASSWORD`, el token de GitHub de una organización o `DEEPSEEK_API_KEY`); una sección que rompe en el navegador muestra su error sin tumbar el resto.
 - **Vivo**: eventos por SSE (`/sse/:channel`) para estado, llamadas y respuestas de Ether.
 - **Recorrido de primer uso (v0.6.7)**: 5 pasos con barra de progreso (bienvenida con idioma y tema, las secciones, Ask Ether, atajos, acceso y ajustes) en español e inglés. Se abre una sola vez por usuario al entrar; Omitir, Esc o la X lo marcan como visto (`user_onboarding`). Se reabre con **Ver recorrido** desde el diálogo de atajos (`?`).
 - **Endpoints**: `/health`, `/ready` (devuelve la versión que corre), `/graphql` con límites de profundidad (8) y largo (4000).
@@ -44,13 +44,13 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 
 - Grafo de ramas con `@wefaber/gitview`: un carril por rama, merges y bifurcaciones, con el CI de cada commit.
 - Últimos pushes (quién, rama, cuándo) desde la API de actividad de GitHub.
-- Dock por commit: mensaje, autor, runs de CI y deploy, y si es el tag activo en el stack. Respuestas cacheadas 30 s. Necesita `GITHUB_TOKEN` de solo lectura.
+- Dock por commit: mensaje, autor, runs de CI y deploy, y si es el tag activo en el stack. Respuestas cacheadas 30 s. Necesita `GITHUB_TOKEN_NEXUS` (o el viejo `GITHUB_TOKEN`) de solo lectura.
 
 ## Ask Ether (v0.6.0)
 
-- Preguntas sobre el sistema a Ether (perfil Hermes `gravida`). Cada pregunta lleva una foto del estado: containers, errores recientes de API, tag activo.
+- Preguntas sobre el sistema a Ether. Ether es el asistente del panel, no un agente: el server llama directo a la API de DeepSeek (`deepseek-flash`, chat con streaming) y no ejecuta nada. Cada pregunta lleva una foto del estado (containers, errores recientes de API, tag activo), la estructura de `nexus-iti/gravida` y `nexus-iti/docs`, hasta 4 archivos de esos repos cuyo nombre coincide con la pregunta (o el README si ninguno coincide) y los últimos 3 intercambios del hilo. Los repos se leen por la API de GitHub con el token de su organización (`GITHUB_TOKEN_NEXUS` para `nexus-iti`, `GITHUB_TOKEN_WEFABER` para `wefaber`; caché de 10 min); un repo que no responde solo se omite. Los archivos leídos aparecen como pasos «leyó».
 - Hilos por usuario, con respuesta en streaming, pasos de herramientas y botón para frenar el run. Historial 30 días.
-- **Aprobaciones**: si Ether pide ejecutar algo, solo `admin` lo ve y lo aprueba o rechaza.
+- **Aprobaciones**: sin uso desde que Ether no ejecuta nada (el estado y la UI siguen, el flujo no se dispara).
 - **Responder a una parte**: seleccionás texto de una respuesta y la siguiente pregunta se manda como `Q: <cita>` y `A: <tu respuesta>`.
 - **Compartir respuesta**: un modal crea un link de solo lectura a una respuesta puntual (`#ether?s=<token>`); el hilo queda privado y el link se puede revocar.
 - El canal SSE de cada run usa una clave secreta que solo reciben el dueño y los admins.
