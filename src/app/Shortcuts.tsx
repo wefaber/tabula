@@ -1,7 +1,8 @@
-import { Dialog, isTyping, Kbd } from '@wefaber/ui'
+import { Button, Dialog, isTyping, Kbd } from '@wefaber/ui'
 import { useEffect, useState } from 'react'
 import { SECTIONS } from '@/features/registry'
 import { useT } from '@/lib/i18n'
+import { openOnboarding } from './onboardingEvents'
 
 /** Hash navigation by keyboard plus the help dialog. Ignored while typing and with any modifier held. */
 export function Shortcuts({ active }: { active: string }) {
@@ -49,6 +50,17 @@ export function Shortcuts({ active }: { active: string }) {
           </li>
         ))}
       </ul>
+      <div className="flex justify-end">
+        <Button
+          variant="secondary"
+          onClick={() => {
+            setHelp(false)
+            openOnboarding()
+          }}
+        >
+          {t('shortcuts.tour')}
+        </Button>
+      </div>
     </Dialog>
   )
 }

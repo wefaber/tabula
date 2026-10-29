@@ -18,6 +18,7 @@ const DICT = {
     'shell.sessionError': 'No se pudo conectar con el panel ({error}).',
     'loader.loading': 'Cargando…',
     'shortcuts.title': 'Atajos de teclado',
+    'shortcuts.tour': 'Ver recorrido',
     'shortcuts.section':
       'Ir a la sección por número (1 a 7, en el orden del menú)',
     'shortcuts.prev': 'Sección anterior',
@@ -51,6 +52,7 @@ const DICT = {
     'shell.sessionError': 'Could not connect to the panel ({error}).',
     'loader.loading': 'Loading…',
     'shortcuts.title': 'Keyboard shortcuts',
+    'shortcuts.tour': 'Take the tour',
     'shortcuts.section': 'Go to a section by number (1 to 7, in menu order)',
     'shortcuts.prev': 'Previous section',
     'shortcuts.next': 'Next section',

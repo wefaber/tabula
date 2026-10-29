@@ -14,6 +14,7 @@ import { useT } from '@/lib/i18n'
 import { Loader } from './Loader'
 import { Login } from './Login'
 import { PreferencesButton } from './Preferences'
+import { Onboarding } from './Onboarding'
 import { SectionBoundary } from './SectionBoundary'
 import { Shortcuts } from './Shortcuts'
 
@@ -183,6 +184,7 @@ export default function App() {
         <span className="tabular">v{system.version}</span>
       </footer>
       <Shortcuts active={active} />
+      <Onboarding />
       <BackToTop />
     </div>
   )
