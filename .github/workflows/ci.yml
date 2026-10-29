@@ -4,6 +4,8 @@ name: CI
 # es publico y un PR de un fork no puede ejecutar codigo en el VPS. El deploy vive en deploy.yml.
 on:
   pull_request:
+    # edited: cambiar el destino de un PR vuelve a evaluar el flujo de ramas.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main, dev]
 
