@@ -1,6 +1,6 @@
 # Tabula
 
-Panel de desarrollo del stack de Gravida (NEXUS) para Faku, Pablo y Jean. URL: **https://gravidadev.wefaber.net** (solo tailnet).
+Panel de desarrollo del stack de Gravida (NEXUS) para Faku, Pablo y Jean. URL: **https://tabula.wefaber.net** (solo tailnet).
 
 Todo en una pantalla, con el stack `nexus-test` (db, back, front) como sistema:
 

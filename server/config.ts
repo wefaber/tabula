@@ -73,7 +73,7 @@ export function loadConfig(
     production,
     fixtures,
     devLogin: production ? '' : (env.TABULA_DEV_LOGIN ?? '').toLowerCase(),
-    domain: env.TABULA_DOMAIN ?? 'gravidadev.wefaber.net',
+    domain: env.TABULA_DOMAIN ?? 'tabula.wefaber.net',
     tailscaleSocket:
       env.TAILSCALE_SOCKET ?? '/var/run/tailscale/tailscaled.sock',
     trustServeHeader: env.TABULA_TRUST_SERVE_HEADER === '1',
