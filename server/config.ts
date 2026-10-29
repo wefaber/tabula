@@ -1,4 +1,4 @@
-// Runtime config from the environment. Server side it comes from ~/deploy/env/gravida-devpanel.env (systemd
+// Runtime config from the environment. Server side it comes from ~/deploy/env/tabula.env (systemd
 // EnvironmentFile); locally from .env.local, which Bun loads on its own.
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -27,7 +27,7 @@ export interface Config {
   port: number
   dataDir: string
   version: string
-  /** Tailnet logins allowed in, from DEVPANEL_USERS (`login:role:Name`, comma separated). */
+  /** Tailnet logins allowed in, from TABULA_USERS (`login:role:Name`, comma separated). */
   users: AllowedUser[]
   podmanSocket: string
   nexus: {
@@ -51,10 +51,9 @@ export function parseUsers(raw: string): AllowedUser[] {
       const [login = '', role = 'member', name] = part
         .split(':')
         .map((s) => s.trim())
-      if (!login)
-        throw new Error(`DEVPANEL_USERS: entrada sin login: "${part}"`)
+      if (!login) throw new Error(`TABULA_USERS: entrada sin login: "${part}"`)
       if (role !== 'admin' && role !== 'member')
-        throw new Error(`DEVPANEL_USERS: rol inválido "${role}" para ${login}`)
+        throw new Error(`TABULA_USERS: rol inválido "${role}" para ${login}`)
       return {
         login: login.toLowerCase(),
         role,
@@ -68,26 +67,24 @@ export function loadConfig(
   version = '0.0.0',
 ): Config {
   const production = env.NODE_ENV === 'production'
-  const fixtures = env.DEVPANEL_FIXTURES === '1'
+  const fixtures = env.TABULA_FIXTURES === '1'
   const home = homedir()
   return {
     production,
     fixtures,
-    devLogin: production ? '' : (env.DEVPANEL_DEV_LOGIN ?? '').toLowerCase(),
-    domain: env.DEVPANEL_DOMAIN ?? 'gravidadev.wefaber.net',
+    devLogin: production ? '' : (env.TABULA_DEV_LOGIN ?? '').toLowerCase(),
+    domain: env.TABULA_DOMAIN ?? 'gravidadev.wefaber.net',
     tailscaleSocket:
       env.TAILSCALE_SOCKET ?? '/var/run/tailscale/tailscaled.sock',
-    trustServeHeader: env.DEVPANEL_TRUST_SERVE_HEADER === '1',
+    trustServeHeader: env.TABULA_TRUST_SERVE_HEADER === '1',
     host: env.HOST ?? '127.0.0.1',
     port: Number(env.PORT ?? 4171),
     dataDir:
       env.DATA_DIR ??
-      (production
-        ? '/home/hermes/data/gravida-devpanel'
-        : join(process.cwd(), 'data')),
+      (production ? '/home/hermes/data/tabula' : join(process.cwd(), 'data')),
     version,
     users: parseUsers(
-      env.DEVPANEL_USERS ?? (fixtures ? 'dev@local:admin:Dev' : ''),
+      env.TABULA_USERS ?? (fixtures ? 'dev@local:admin:Dev' : ''),
     ),
     podmanSocket: env.PODMAN_SOCKET ?? '/run/user/1001/podman/podman.sock',
     nexus: {

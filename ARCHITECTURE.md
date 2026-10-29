@@ -4,11 +4,11 @@ Extiende `~/.claude/standards/ARCHITECTURE.md`. Decisiones en [docs/adr](docs/ad
 
 Un proceso Bun en el host del VPS (no en container): Elysia sirve `/health`, `/ready`, `/auth/*`, `/graphql`, `/sse/:channel`
 y la SPA. Habla con Podman por el socket rootless, con GitHub por REST y con Hermes (Ether) por loopback. Su SQLite propio
-(`/home/hermes/data/gravida-devpanel/devpanel.db`) guarda usuarios, tokens, sesiones, auditoría y lo que cada feature necesite.
+(`/home/hermes/data/tabula/tabula.db`) guarda usuarios, tokens, sesiones, auditoría y lo que cada feature necesite.
 Nunca toca los datos de Gravida salvo por el editor de DB, vía `exec` en el container `db`.
 
 ```
-https://gravidadev.wefaber.net -> nginx (vhost en la IP del tailnet, :443) -> gravida-devpanel@blue|green (:4171/:4172)
+https://gravidadev.wefaber.net -> nginx (vhost en la IP del tailnet, :443) -> tabula@blue|green (:4171/:4172)
                                                    |- tailscaled.sock (whois de la IP del cliente)
                                                    |- podman.sock  -> containers nexus-test (list/stats/logs/exec/power)
                                                    |- api.github.com (read-only)
@@ -49,13 +49,24 @@ Para que varias features se escriban en paralelo sin pisarse:
 
 ## Config (env)
 
-`DEVPANEL_USERS` (`login:rol:Nombre,...`), `PORT`, `DATA_DIR`, `PODMAN_SOCKET`, `NEXUS_PROJECT` (`nexus-test`), `NEXUS_FRONT_URL`
+`TABULA_USERS` (`login:rol:Nombre,...`), `PORT`, `DATA_DIR`, `PODMAN_SOCKET`, `NEXUS_PROJECT` (`nexus-test`), `NEXUS_FRONT_URL`
 (`http://127.0.0.1:18080`), `NEXUS_STATE_FILE`, `DB_NAME`/`DB_USER`/`DB_PASSWORD`, `GITHUB_REPO`/`GITHUB_TOKEN`,
-`ETHER_URL`/`ETHER_KEY`/`ETHER_PROFILE`, `DEVPANEL_DOMAIN` (`gravidadev.wefaber.net`), `TAILSCALE_SOCKET`, `DEVPANEL_TRUST_SERVE_HEADER` (solo si hubiera Tailscale Serve adelante). En el VPS vienen de `~/deploy/env/gravida-devpanel.env`. Local: `DEVPANEL_FIXTURES=1`.
+`ETHER_URL`/`ETHER_KEY`/`ETHER_PROFILE`, `TABULA_DOMAIN` (`gravidadev.wefaber.net`), `TAILSCALE_SOCKET`, `TABULA_TRUST_SERVE_HEADER` (solo si hubiera Tailscale Serve adelante). En el VPS vienen de `~/deploy/env/tabula.env`. Local: `TABULA_FIXTURES=1`.
+
+## Flujo de ramas
+
+```
+<tipo>/<funcion>  ->  dev (acumula las funciones)  ->  main (produccion)
+```
+
+- Tipos: `feat fix chore docs refactor test ci perf hotfix`; ejemplo `feat/containers`. Un PR por funcion, siempre contra `dev`.
+- `dev` -> `main` es un PR de release; a `main` solo entra `dev`. Un hotfix tambien pasa por `dev`.
+- El job `Flujo de ramas` de `ci.yml` rechaza otras ramas o destinos. Branch protection en `dev` y `main`: PR obligatorio, check `CI ok`, rama al dia, sin force push ni borrado.
+- Al mergear se borra la rama (`delete_branch_on_merge`). Merge a `dev` con squash; `dev` -> `main` con merge commit para que `dev` no diverja.
 
 ## Delivery
 
 Push a `main` dispara `.github/workflows/deploy.yml` (runner wefaber): install, `check`, build y
-`deploy/gravida-devpanel.sh <sha>` (rsync al slot libre, `/ready`, switch del upstream de nginx, reload, y `/ready` sobre `https://gravidadev.wefaber.net`). El slot anterior
-queda arriba; rollback = `deploy/gravida-devpanel.sh rollback`. Las migraciones son expand/contract porque blue y green
+`deploy/tabula.sh <sha>` (rsync al slot libre, `/ready`, switch del upstream de nginx, reload, y `/ready` sobre `https://gravidadev.wefaber.net`). El slot anterior
+queda arriba; rollback = `deploy/tabula.sh rollback`. Las migraciones son expand/contract porque blue y green
 comparten la DB.

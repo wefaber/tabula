@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Blue/green deploy of the Gravida Dev Panel. Run by .github/workflows/deploy.yml on the wefaber runner.
+# Blue/green deploy of the Tabula. Run by .github/workflows/deploy.yml on the wefaber runner.
 #
-#   deploy/gravida-devpanel.sh <sha>      build output of the checkout -> idle slot -> health -> switch
-#   deploy/gravida-devpanel.sh rollback   switch back to the previous slot (still running)
-#   deploy/gravida-devpanel.sh status     active slot and health of both
+#   deploy/tabula.sh <sha>      build output of the checkout -> idle slot -> health -> switch
+#   deploy/tabula.sh rollback   switch back to the previous slot (still running)
+#   deploy/tabula.sh status     active slot and health of both
 #
-# Slots: blue :4171, green :4172 (systemd gravida-devpanel@<slot>). nginx listens on the tailnet address and
-# proxies to the include /home/hermes/deploy/nginx/gravida-devpanel-upstream.conf, which this script rewrites.
-# Public name: https://gravidadev.wefaber.net (nginx vhost on the tailnet address, see deploy/nginx-gravida-devpanel.conf).
-# Env: ~/deploy/env/gravida-devpanel.env.
+# Slots: blue :4171, green :4172 (systemd tabula@<slot>). nginx listens on the tailnet address and
+# proxies to the include /home/hermes/deploy/nginx/tabula-upstream.conf, which this script rewrites.
+# Public name: https://gravidadev.wefaber.net (nginx vhost on the tailnet address, see deploy/nginx-tabula.conf).
+# Env: ~/deploy/env/tabula.env.
 set -euo pipefail
 
-APP=gravida-devpanel
-BASE="${DEVPANEL_BASE:-/home/hermes/apps/$APP}"
-STATE="${DEVPANEL_STATE:-/home/hermes/deploy/state/$APP.slot}"
-UPSTREAM="${DEVPANEL_UPSTREAM:-/home/hermes/deploy/nginx/$APP-upstream.conf}"
-DOMAIN="${DEVPANEL_DOMAIN:-gravidadev.wefaber.net}"
-TAILNET_IP="${DEVPANEL_TAILNET_IP:-100.113.187.112}"
+APP=tabula
+BASE="${TABULA_BASE:-/home/hermes/apps/$APP}"
+STATE="${TABULA_STATE:-/home/hermes/deploy/state/$APP.slot}"
+UPSTREAM="${TABULA_UPSTREAM:-/home/hermes/deploy/nginx/$APP-upstream.conf}"
+DOMAIN="${TABULA_DOMAIN:-gravidadev.wefaber.net}"
+TAILNET_IP="${TABULA_TAILNET_IP:-100.113.187.112}"
 PUBLIC="https://$DOMAIN"
 CMD="${1:-deploy}"
 

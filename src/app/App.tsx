@@ -78,9 +78,7 @@ export default function App() {
   return (
     <div className="mx-auto flex min-h-svh max-w-[1800px] flex-col gap-4 p-4">
       <header className="sticky top-0 z-30 -mx-4 flex flex-wrap items-center gap-3 bg-bg/90 px-4 py-2 backdrop-blur">
-        <h1 className="font-display text-h3 font-semibold">
-          Gravida Dev Panel
-        </h1>
+        <h1 className="font-display text-h3 font-semibold">Tabula</h1>
         <nav
           aria-label="Secciones"
           className="flex flex-wrap gap-1"

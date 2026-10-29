@@ -1,11 +1,11 @@
 {
-  "name": "gravida-devpanel",
+  "name": "tabula",
   "private": true,
   "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:api": "DEVPANEL_FIXTURES=1 bun --watch server/index.ts",
+    "dev:api": "TABULA_FIXTURES=1 bun --watch server/index.ts",
     "build": "tsc -b && vite build",
     "start": "bun server/index.ts",
     "test": "bun test",
