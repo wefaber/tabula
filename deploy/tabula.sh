@@ -28,7 +28,18 @@ other() { [ "$1" = blue ] && echo green || echo blue; }
 active() { cat "$STATE" 2>/dev/null || echo green; }   # first deploy lands on blue
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 # The real domain, as a tailnet client reaches it: SNI + Host intact, address pinned to the VPS tailnet IP.
-public_ready() { curl -fsS --max-time 5 --resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" "$PUBLIC/ready" >/dev/null; }
+# nginx reload is graceful: for a few seconds after it, old workers still answer with the previous upstream.
+# So poll, and with a version argument require that version (the slot just switched to).
+public_ready() {
+  local want="${1:-}" body
+  for _ in $(seq 1 20); do
+    if body="$(curl -fsS --max-time 5 --resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" "$PUBLIC/ready" 2>/dev/null)"; then
+      if [ -z "$want" ] || grep -q "\"version\":\"$want\"" <<<"$body"; then return 0; fi
+    fi
+    sleep 1
+  done
+  return 1
+}
 ready() { curl -fsS --max-time 5 "http://127.0.0.1:$(port "$1")/ready" >/dev/null; }
 
 wait_ready() {
@@ -72,8 +83,9 @@ case "$CMD" in
     echo "$SHA" > "$dest/.sha"
     sudo /usr/bin/systemctl restart "$APP@$idle"
     wait_ready "$idle" || { sudo /usr/bin/systemctl stop "$APP@$idle"; die "el slot $idle no quedó ready; sigue sirviendo $cur"; }
+    version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$ROOT/package.json" | head -n 1)"
     switch_to "$idle"
-    public_ready || { switch_to "$cur"; die "$PUBLIC/ready no responde; volví a $cur"; }
+    public_ready "$version" || { switch_to "$cur"; die "$PUBLIC/ready no sirve v$version; volví a $cur"; }
     echo "==> deploy ok: $SHA activo en $idle (el slot $cur queda arriba para rollback)"
     ;;
 esac

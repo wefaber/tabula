@@ -64,12 +64,20 @@ jobs:
         run: |
           base="https://$DOMAIN:$PUBLIC_PORT"
           pin=(--resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" --max-time 10 -fsS)
-          ready="$(curl "${pin[@]}" "$base/ready")"
-          echo "$ready"
-          curl "${pin[@]}" -o /dev/null -w 'GET / -> %{http_code}\n' "$base/"
+          expected=""
           if [ "${{ inputs.action }}" != 'rollback' ]; then
             expected="$(/opt/bun/bun -e 'console.log((await Bun.file("package.json").json()).version)')"
-            served="$(printf '%s' "$ready" | /opt/bun/bun -e 'console.log(JSON.parse(await Bun.stdin.text()).version)')"
+          fi
+          # Tras el reload de nginx, unos segundos despues el upstream viejo todavia contesta: se reintenta hasta ver la version nueva.
+          for _ in $(seq 1 20); do
+            ready="$(curl "${pin[@]}" "$base/ready" || true)"
+            served="$(printf '%s' "$ready" | /opt/bun/bun -e 'try { console.log(JSON.parse(await Bun.stdin.text()).version) } catch { console.log("") }')"
+            if [ -z "$expected" ] || [ "$served" = "$expected" ]; then break; fi
+            sleep 1
+          done
+          echo "$ready"
+          curl "${pin[@]}" -o /dev/null -w 'GET / -> %{http_code}\n' "$base/"
+          if [ -n "$expected" ]; then
             [ "$served" = "$expected" ] || { echo "::error::sirve v$served, se esperaba v$expected"; exit 1; }
           fi
           {
