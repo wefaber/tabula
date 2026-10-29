@@ -41,7 +41,7 @@ Para que varias features se escriban en paralelo sin pisarse:
   Dominio puro (sin DB, red ni reloj; `now` se pasa) con tests en `__tests__/` de la feature.
 - **Web**: `src/features/<n>/index.tsx` exporta `default` el componente de la sección. `src/features/registry.ts` ya la carga.
 - **Migraciones**: archivo propio `server/db/migrations/NNNN_<n>.sql`. Reservados: containers 0010, apis 0020, calls 0030,
-  db 0040, git 0050, ether 0060. Las tablas llevan el prefijo de la feature.
+  db 0040, git 0050, ether 0060, prefs 0080. Las tablas llevan el prefijo de la feature.
 - **Compartido** (no se edita salvo necesidad): `deps.ts`, `graphql/builder.ts`, `bus.ts`, `adapters/*`, `src/app/*`.
 - **Tiempo real**: `deps.bus.emit('<canal>', '<evento>', datos)` en el server; `follow('<canal>', {...})` en la web.
 - **Auditoría**: toda mutación llama `audit(ctx.db, ctx.user, 'feature.accion', objetivo, detalle)`.

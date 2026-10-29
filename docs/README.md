@@ -10,6 +10,7 @@ URL: https://gravidadev.wefaber.net (vhost nginx en la IP del tailnet).
 | Base de datos              | v0.4.0  | hecho  |
 | Git                        | v0.5.0  | hecho  |
 | Ask Ether                  | v0.6.0  | hecho  |
+| Preferencias               | v0.6.4  | hecho  |
 
 - [Funcionalidades](features.md) Qué hace cada sección
 - [Fixes 2026-10-28 · v0.6.2](fixes-2026-10-28-v0.6.2/README.md) Atajos, módulos con fallas, loader y Ask Ether

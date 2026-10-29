@@ -44,6 +44,7 @@ import {
 } from '../../../shared/etherRefs'
 import { RefChips, RefPicker, useRefComposer } from './refPicker'
 import { SourcesRow } from './sources'
+import { AnswerBody } from './Diagram'
 
 interface Thread {
   slug: string
@@ -509,7 +510,11 @@ export default function Section() {
               who={m.role === 'user' ? 'Vos' : 'Ether'}
               tone={m.status === 'failed' ? 'error' : undefined}
             >
-              {m.role === 'user' ? <ReplyBody body={m.body} /> : m.body}
+              {m.role === 'user' ? (
+                <ReplyBody body={m.body} />
+              ) : (
+                <AnswerBody body={m.body} />
+              )}
               {m.role === 'ether' && m.status === 'done' ? (
                 <div className="mt-2 flex flex-wrap items-center gap-1 select-none">
                   <ReplyToSelection
@@ -543,7 +548,9 @@ export default function Section() {
               who="Ether"
               tone={live.state.phase === 'failed' ? 'error' : undefined}
             >
-              {live.state.text || live.state.error || 'Pensando…'}
+              <AnswerBody
+                body={live.state.text || live.state.error || 'Pensando…'}
+              />
               {live.state.tools.length > 0 ? (
                 <span className="mt-2 flex flex-wrap gap-1.5">
                   {live.state.tools.map((t, i) => (
@@ -924,7 +931,9 @@ function SharedView({ token }: { token: string }) {
       {shared.data.question ? (
         <Bubble who="Pregunta">{shared.data.question}</Bubble>
       ) : null}
-      <Bubble who="Ether">{shared.data.answer}</Bubble>
+      <Bubble who="Ether">
+        <AnswerBody body={shared.data.answer} />
+      </Bubble>
       <p className="text-meta text-muted">
         Compartida por {shared.data.sharedBy} · solo lectura
       </p>

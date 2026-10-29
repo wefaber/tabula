@@ -11,6 +11,7 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Atajos**: `1` a `7` cambian de sección, `[` y `]` van a la anterior o siguiente, `?` lista los atajos.
 - **Fallas a la vista**: el header lista los módulos con problemas y qué se detectó (Podman, migraciones, falta de `DB_PASSWORD`, `GITHUB_TOKEN` o `ETHER_KEY`); una sección que rompe en el navegador muestra su error sin tumbar el resto.
 - **Vivo**: eventos por SSE (`/sse/:channel`) para estado, llamadas y respuestas de Ether.
+- **Recorrido de primer uso (v0.6.3)**: 4 pasos (secciones, pedir un token, atajos, Ask Ether) que se abren una sola vez por usuario al entrar. Esc o la X lo cierran y lo marcan como visto (`user_onboarding`). Se reabre con **Ver recorrido** desde el diálogo de atajos (`?`).
 - **Endpoints**: `/health`, `/ready` (devuelve la versión que corre), `/graphql` con límites de profundidad (8) y largo (4000).
 - **Deploy**: blue/green en el VPS, verificado contra el dominio real y con rollback. Ver [ARCHITECTURE.md](../ARCHITECTURE.md).
 
@@ -53,6 +54,17 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Responder a una parte**: seleccionás texto de una respuesta y la siguiente pregunta se manda como `Q: <cita>` y `A: <tu respuesta>`.
 - **Compartir respuesta**: un modal crea un link de solo lectura a una respuesta puntual (`#ether?s=<token>`); el hilo queda privado y el link se puede revocar.
 - El canal SSE de cada run usa una clave secreta que solo reciben el dueño y los admins.
+- **Diagramas (v0.6.5)**: Ether puede responder con un bloque ` ```mermaid ` (flowchart para arquitectura, sequenceDiagram para flujos). El panel lo dibuja con [Pele](https://pele.run) (MIT) en el lugar del bloque: **Ampliar** lo abre en un diálogo y **Copiar Mermaid** copia el código. Si no dibuja, muestra el código. El SVG pasa por un sanitizador (`shared/mermaid.ts`) antes de llegar al DOM; los colores siguen el tema forest, claro y oscuro. Las respuestas compartidas también lo muestran.
+
+## Preferencias (v0.6.4)
+
+- **Engranaje** en el header abre el diálogo con cuatro opciones: idioma (Español, English), tema (Oscuro, Claro, Sistema), tamaño de texto (90, 100, 115 o 130%) y contraste (Normal, Alto). Cada cambio se aplica al toque y se guarda.
+- **Por usuario, en el server**: tabla `user_prefs` (migración 0080), query `prefs` y mutation `setPrefs`. Los valores se validan; lo que no se manda queda como estaba. Cada cambio queda en la auditoría.
+- **Sin destello**: el navegador guarda una copia local (`tabula-prefs`, y `tabula-theme` para el tema) que `index.html` lee antes del primer paint. Al cargar el shell, manda lo guardado en el server.
+- **Tema Sistema** sigue `prefers-color-scheme` del navegador y se actualiza si cambia.
+- **Escala**: zoom del documento (`--ui-scale` en `src/index.css`), porque los tokens de tipo están en px.
+- **Contraste alto**: sube el texto secundario y los bordes en los dos temas de forest (`src/index.css`).
+- **Idioma**: el shell (header, Salir, Panel ok, atajos, loader) y el diálogo salen en el idioma elegido. Las claves están en `src/lib/i18n.ts`.
 
 ### Referencias y fuentes (v0.6.6)
 
@@ -62,4 +74,5 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 
 ## Pendiente
 
-Ver [issue #12](https://github.com/wefaber/tabula/issues/12) (refactor de componentes grandes) y la lista de VPS en [ARCHITECTURE.md](../ARCHITECTURE.md): runner, `tabula.env`, nginx, DNS y certificado.
+- **Idioma en las secciones**: Containers, APIs, Llamadas, Base de datos, Git, Ask Ether y Acceso siguen en español. Para traducir una sección, sumar sus textos al diccionario de `src/lib/i18n.ts` y usar `useT()`.
+- Ver [issue #12](https://github.com/wefaber/tabula/issues/12) (refactor de componentes grandes) y la lista de VPS en [ARCHITECTURE.md](../ARCHITECTURE.md): runner, `tabula.env`, nginx, DNS y certificado.
