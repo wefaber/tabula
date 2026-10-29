@@ -64,12 +64,25 @@ jobs:
         run: |
           base="https://$DOMAIN:$PUBLIC_PORT"
           pin=(--resolve "$DOMAIN:$PUBLIC_PORT:$TAILNET_IP" --max-time 10 -fsS)
-          ready="$(curl "${pin[@]}" "$base/ready")"
-          echo "$ready"
-          curl "${pin[@]}" -o /dev/null -w 'GET / -> %{http_code}\n' "$base/"
+          expected=""
           if [ "${{ inputs.action }}" != 'rollback' ]; then
             expected="$(/opt/bun/bun -e 'console.log((await Bun.file("package.json").json()).version)')"
-            served="$(printf '%s' "$ready" | /opt/bun/bun -e 'console.log(JSON.parse(await Bun.stdin.text()).version)')"
+          fi
+          # Despues del reload de nginx los workers viejos siguen atendiendo conexiones un instante:
+          # una request suelta puede pegarle al slot anterior. Reintentar hasta ver la version nueva.
+          ready=""; served=""
+          for _ in $(seq 1 20); do
+            ready="$(curl "${pin[@]}" "$base/ready" || true)"
+            served="$(printf '%s' "$ready" | /opt/bun/bun -e 'try{console.log(JSON.parse(await Bun.stdin.text()).version)}catch{console.log("")}' || true)"
+            [ -n "$ready" ] || { sleep 1; continue; }
+            [ -z "$expected" ] && break
+            [ "$served" = "$expected" ] && break
+            sleep 1
+          done
+          echo "$ready"
+          curl "${pin[@]}" -o /dev/null -w 'GET / -> %{http_code}\n' "$base/"
+          [ -n "$ready" ] || { echo "::error::$base/ready no responde"; exit 1; }
+          if [ -n "$expected" ]; then
             [ "$served" = "$expected" ] || { echo "::error::sirve v$served, se esperaba v$expected"; exit 1; }
           fi
           {
