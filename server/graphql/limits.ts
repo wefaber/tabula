@@ -61,7 +61,7 @@ export function depthLimit(max = MAX_DEPTH) {
   })
 }
 
-export function useLimits(): Plugin {
+export function limitsPlugin(): Plugin {
   return {
     onParams({ params }) {
       if ((params.query?.length ?? 0) > MAX_QUERY_LENGTH) {
