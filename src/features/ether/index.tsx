@@ -395,6 +395,11 @@ export default function Section() {
       setLive(null)
       setFailure({ thread, question, refs, message: e.message })
     },
+    // A new thread or a failed message now exists on the server, so the lists must reload.
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: ['ether', 'threads'] })
+      void qc.invalidateQueries({ queryKey: ['ether', 'messages'] })
+    },
   })
 
   const act = useMutation({
@@ -404,6 +409,8 @@ export default function Section() {
         : gql(APPROVE, { runId: args.runId, deny: args.op === 'deny' }),
     onError: (e) =>
       setFailure({ thread, question: '', refs: [], message: e.message }),
+    onSettled: () =>
+      void qc.invalidateQueries({ queryKey: ['ether', 'messages'] }),
   })
 
   const send = (question: string) => {
