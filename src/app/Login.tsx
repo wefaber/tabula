@@ -33,7 +33,20 @@ export function Login() {
 
   return (
     <div className="mx-auto grid min-h-svh max-w-sm place-items-center p-4">
-      <Tile title="Entrar al panel">
+      <Tile
+        title={
+          <span className="flex items-center gap-2.5">
+            <img
+              src="/logo-mark.png"
+              alt="WeFaber"
+              width={32}
+              height={32}
+              className="size-8 rounded-control"
+            />
+            Entrar a Tabula
+          </span>
+        }
+      >
         <form onSubmit={submit} className="flex flex-col gap-3" noValidate>
           <p className="text-muted">
             Desde el tailnet entrás solo. Fuera de él, usá un token personal. Se
