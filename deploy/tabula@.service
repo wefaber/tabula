@@ -1,13 +1,13 @@
-# systemd template unit: gravida-devpanel@blue (port 4171) and @green (port 4172).
+# systemd template unit: tabula@blue (port 4171) and @green (port 4172).
 # Install to /etc/systemd/system/. User hermes runs rootless Podman, so the socket is /run/user/1001/podman/podman.sock.
 [Unit]
-Description=Gravida Dev Panel (%i)
+Description=Tabula (%i)
 After=network-online.target
 
 [Service]
 User=hermes
-WorkingDirectory=/home/hermes/apps/gravida-devpanel/%i
-EnvironmentFile=/home/hermes/deploy/env/gravida-devpanel.env
+WorkingDirectory=/home/hermes/apps/tabula/%i
+EnvironmentFile=/home/hermes/deploy/env/tabula.env
 Environment=NODE_ENV=production
 Environment=XDG_RUNTIME_DIR=/run/user/1001
 ExecStart=/bin/sh -c 'PORT=$([ "%i" = blue ] && echo 4171 || echo 4172) exec /opt/bun/bun server/index.ts'
@@ -15,7 +15,7 @@ Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/home/hermes/data/gravida-devpanel
+ReadWritePaths=/home/hermes/data/tabula
 StandardOutput=journal
 StandardError=journal
 

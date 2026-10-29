@@ -1,19 +1,117 @@
 name: CI
 
+# Checks de cada PR y de cada push a main/dev. Corre en runners de GitHub: nunca en el self-hosted, porque el repo
+# es publico y un PR de un fork no puede ejecutar codigo en el VPS. El deploy vive en deploy.yml.
 on:
   pull_request:
+    # edited: cambiar el destino de un PR vuelve a evaluar el flujo de ramas.
+    types: [opened, synchronize, reopened, edited]
   push:
-    branches: [dev]
+    branches: [main, dev]
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.4.2
+
 jobs:
-  check:
+  static:
+    name: Static
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      - run: bun run check
+      - name: Formato
+        run: bun run format:check
+      - name: Lint
+        run: bun run lint
+      - name: Tipos
+        run: bun run typecheck
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
+      - run: bun test
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - run: bun install --frozen-lockfile
       - run: bun run build
+      - name: dist/ no esta vacio
+        run: test -s dist/index.html
+
+  deploy-scripts:
+    name: Deploy scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sintaxis y shellcheck
+        run: |
+          bash -n deploy/tabula.sh
+          shellcheck --severity=warning deploy/tabula.sh
+      - name: Los .sh del repo son LF
+        run: |
+          if git ls-files '*.sh' | xargs grep -l $'\r'; then
+            echo "::error::hay scripts con CRLF; correrian mal en Linux"
+            exit 1
+          fi
+
+  # Flujo de ramas: <tipo>/<funcion> -> dev -> main. Solo mira PRs; en push no aplica.
+  flow:
+    name: Flujo de ramas
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Rama y destino
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          case "$BASE" in
+            main)
+              [ "$HEAD" = dev ] || { echo "::error::a main solo entra dev (release). '$HEAD' va primero a dev."; exit 1; } ;;
+            dev)
+              [[ "$HEAD" =~ ^(feat|fix|chore|docs|refactor|test|ci|perf|hotfix)/[a-z0-9][a-z0-9-]*$ ]]                 || { echo "::error::rama '$HEAD' invalida. Formato: <tipo>/<funcion>, ej. feat/containers."; exit 1; } ;;
+            *)
+              echo "::error::destino '$BASE' no permitido. Las ramas van a dev."; exit 1 ;;
+          esac
+          echo "ok: $HEAD -> $BASE"
+
+  # Una sola compuerta para branch protection: exige que todos los de arriba hayan pasado.
+  ci:
+    name: CI ok
+    if: always()
+    needs: [static, test, build, deploy-scripts, flow]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resultado
+        run: |
+          echo '${{ toJSON(needs) }}'
+          if [ '${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}' = 'true' ]; then
+            exit 1
+          fi
