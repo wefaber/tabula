@@ -53,6 +53,17 @@ Para que varias features se escriban en paralelo sin pisarse:
 (`http://127.0.0.1:18080`), `NEXUS_STATE_FILE`, `DB_NAME`/`DB_USER`/`DB_PASSWORD`, `GITHUB_REPO`/`GITHUB_TOKEN`,
 `ETHER_URL`/`ETHER_KEY`/`ETHER_PROFILE`, `TABULA_DOMAIN` (`gravidadev.wefaber.net`), `TAILSCALE_SOCKET`, `TABULA_TRUST_SERVE_HEADER` (solo si hubiera Tailscale Serve adelante). En el VPS vienen de `~/deploy/env/tabula.env`. Local: `TABULA_FIXTURES=1`.
 
+## Flujo de ramas
+
+```
+<tipo>/<funcion>  ->  dev (acumula las funciones)  ->  main (produccion)
+```
+
+- Tipos: `feat fix chore docs refactor test ci perf hotfix`; ejemplo `feat/containers`. Un PR por funcion, siempre contra `dev`.
+- `dev` -> `main` es un PR de release; a `main` solo entra `dev`. Un hotfix tambien pasa por `dev`.
+- El job `Flujo de ramas` de `ci.yml` rechaza otras ramas o destinos. Branch protection en `dev` y `main`: PR obligatorio, check `CI ok`, rama al dia, sin force push ni borrado.
+- Al mergear se borra la rama (`delete_branch_on_merge`). Merge a `dev` con squash; `dev` -> `main` con merge commit para que `dev` no diverja.
+
 ## Delivery
 
 Push a `main` dispara `.github/workflows/deploy.yml` (runner wefaber): install, `check`, build y

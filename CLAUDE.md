@@ -17,4 +17,4 @@ Panel de operación del stack de Gravida. Bun + Elysia + GraphQL (Yoga/Pothos) +
 - Migraciones SQLite: un archivo nuevo `server/db/migrations/NNNN_<feature>.sql` por feature (nunca editar uno aplicado).
 - Todo cambio de estado llama a `audit()`. Nada de secretos en logs ni en respuestas.
 - Tests con adapters fixture (`server/test-utils.ts`), nunca contra Podman, GitHub o Hermes reales.
-- Antes de commitear: `bun run check` en verde. Rama + PR a `main`, nunca push directo.
+- Antes de commitear: `bun run check` en verde. Flujo de ramas: `<tipo>/<funcion>` -> PR a `dev` -> PR `dev` -> `main` (produccion). Nunca push directo a `dev` ni a `main`; ver ARCHITECTURE.md.

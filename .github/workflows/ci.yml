@@ -78,11 +78,33 @@ jobs:
             exit 1
           fi
 
+  # Flujo de ramas: <tipo>/<funcion> -> dev -> main. Solo mira PRs; en push no aplica.
+  flow:
+    name: Flujo de ramas
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Rama y destino
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          case "$BASE" in
+            main)
+              [ "$HEAD" = dev ] || { echo "::error::a main solo entra dev (release). '$HEAD' va primero a dev."; exit 1; } ;;
+            dev)
+              [[ "$HEAD" =~ ^(feat|fix|chore|docs|refactor|test|ci|perf|hotfix)/[a-z0-9][a-z0-9-]*$ ]]                 || { echo "::error::rama '$HEAD' invalida. Formato: <tipo>/<funcion>, ej. feat/containers."; exit 1; } ;;
+            *)
+              echo "::error::destino '$BASE' no permitido. Las ramas van a dev."; exit 1 ;;
+          esac
+          echo "ok: $HEAD -> $BASE"
+
   # Una sola compuerta para branch protection: exige que todos los de arriba hayan pasado.
   ci:
     name: CI ok
     if: always()
-    needs: [static, test, build, deploy-scripts]
+    needs: [static, test, build, deploy-scripts, flow]
     runs-on: ubuntu-latest
     steps:
       - name: Resultado
