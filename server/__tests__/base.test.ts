@@ -212,7 +212,7 @@ describe('http app', () => {
   })
 
   test('a wrong token is 401 and never opens a session', async () => {
-    const res = await post(app(), '/auth/token', { token: 'gdp_nope' })
+    const res = await post(app(), '/auth/token', { token: 'tbl_nope' })
     expect(res.status).toBe(401)
     expect(res.headers.get('set-cookie')).toBeNull()
   })
@@ -227,7 +227,7 @@ describe('http app', () => {
       headers,
     )
     const { token } = (await created.json()).data.createToken
-    expect(token).toStartWith('gdp_')
+    expect(token).toStartWith('tbl_')
     const log = await post(
       a,
       '/graphql',
@@ -281,10 +281,10 @@ test('clampPage keeps page sizes in 1..100', () => {
 
 test('devLogin stands in for the tailnet header, and is off in production', async () => {
   const { loadConfig } = await import('../config')
-  const dev = loadConfig({ DEVPANEL_DEV_LOGIN: 'Dev@Local' })
+  const dev = loadConfig({ TABULA_DEV_LOGIN: 'Dev@Local' })
   const prod = loadConfig({
     NODE_ENV: 'production',
-    DEVPANEL_DEV_LOGIN: 'dev@local',
+    TABULA_DEV_LOGIN: 'dev@local',
   })
   expect(dev.devLogin).toBe('dev@local')
   expect(prod.devLogin).toBe('')

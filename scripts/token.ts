@@ -2,7 +2,7 @@
 //   bun scripts/token.ts create <login> [label]   prints the token once
 //   bun scripts/token.ts list
 //   bun scripts/token.ts revoke <id>
-// Uses the same DATA_DIR and DEVPANEL_USERS as the service (EnvironmentFile ~/deploy/env/gravida-devpanel.env).
+// Uses the same DATA_DIR and TABULA_USERS as the service (EnvironmentFile ~/deploy/env/tabula.env).
 import { join } from 'node:path'
 import pkg from '../package.json'
 import {
@@ -17,14 +17,14 @@ import { openDb } from '../server/db'
 
 const [cmd, arg, ...rest] = process.argv.slice(2)
 const config = loadConfig(process.env, pkg.version)
-const db = openDb(join(config.dataDir, 'devpanel.db'))
+const db = openDb(join(config.dataDir, 'tabula.db'))
 syncUsers(db, config.users)
 const cli = { login: 'cli' }
 
 if (cmd === 'create' && arg) {
   const user = userByLogin(db, arg)
   if (!user) {
-    console.error(`"${arg}" no está en DEVPANEL_USERS (o está inactivo).`)
+    console.error(`"${arg}" no está en TABULA_USERS (o está inactivo).`)
     process.exit(1)
   }
   const { id, token } = createToken(db, user.id, rest.join(' ') || 'cli')

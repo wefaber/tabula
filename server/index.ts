@@ -15,9 +15,9 @@ import { log } from './log'
 
 const config = loadConfig(process.env, pkg.version)
 if (config.users.length === 0)
-  log.warn('DEVPANEL_USERS vacío: solo se puede entrar con token')
+  log.warn('TABULA_USERS vacío: solo se puede entrar con token')
 
-const db = openDb(join(config.dataDir, 'devpanel.db'))
+const db = openDb(join(config.dataDir, 'tabula.db'))
 syncUsers(db, config.users)
 
 const deps: Deps = {
