@@ -50,7 +50,7 @@ Para que varias features se escriban en paralelo sin pisarse:
 ## Config (env)
 
 `TABULA_USERS` (`login:rol:Nombre,...`), `PORT`, `DATA_DIR`, `PODMAN_SOCKET`, `NEXUS_PROJECT` (`nexus-test`), `NEXUS_FRONT_URL`
-(`http://127.0.0.1:18080`), `NEXUS_STATE_FILE`, `DB_NAME`/`DB_USER`/`DB_PASSWORD`, `GITHUB_REPO`/`GITHUB_TOKEN`,
+(`http://127.0.0.1:18080`), `NEXUS_STATE_FILE`, `DB_NAME`/`DB_USER`/`DB_PASSWORD`, `GITHUB_REPO`, un token de GitHub por organización (`GITHUB_TOKEN_NEXUS` para `nexus-iti`, `GITHUB_TOKEN_WEFABER` para `wefaber`; `GITHUB_TOKEN` sigue valiendo como el de nexus-iti),
 `DEEPSEEK_API_KEY`/`DEEPSEEK_URL`/`DEEPSEEK_MODEL` (default `deepseek-flash`) y `ETHER_REPOS` (default `nexus-iti/gravida,nexus-iti/docs`), `TABULA_DOMAIN` (`tabula.wefaber.net`), `TAILSCALE_SOCKET`, `TABULA_TRUST_SERVE_HEADER` (solo si hubiera Tailscale Serve adelante). En el VPS vienen de `~/deploy/env/tabula.env`. Local: `TABULA_FIXTURES=1`.
 
 ## Flujo de ramas

@@ -254,6 +254,8 @@ export function deepseekEther(
           yield { type: 'delta', text: run.parts[i++] ?? '' }
         }
         if (run.state !== 'running') break
+        // Sequential on purpose: this is a stream consumer, each wait is for the next chunk and the order is the answer.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
         await new Promise<void>((resolve) => {
           const done = () => {
             run.wake.delete(done)
