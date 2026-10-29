@@ -362,7 +362,7 @@ export class EtherRuns {
 
 const instances = new WeakMap<Deps['db'], EtherRuns>()
 
-/** One runner per database, built on first use: the fixture client when `DEVPANEL_FIXTURES=1`, Hermes otherwise. */
+/** One runner per database, built on first use: the fixture client when `TABULA_FIXTURES=1`, Hermes otherwise. */
 export function runsFor(deps: Deps): EtherRuns {
   let runs = instances.get(deps.db)
   if (!runs) {

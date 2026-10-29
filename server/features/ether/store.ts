@@ -36,7 +36,7 @@ export const MAX_BODY = 20_000
 export const THREAD_SLUG = /^[a-z0-9][a-z0-9-]{0,39}$/
 
 export function sessionId(login: string, slug: string): string {
-  return `gdp-${login.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${slug}`
+  return `tabula-${login.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${slug}`
 }
 
 export function titleOf(question: string): string {

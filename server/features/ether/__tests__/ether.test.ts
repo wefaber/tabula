@@ -111,7 +111,7 @@ describe('input y snapshot', () => {
   })
 
   test('la sesión es estable por usuario e hilo', () => {
-    expect(sessionId('Dev@Local', 'hilo-1')).toBe('gdp-dev-local-hilo-1')
+    expect(sessionId('Dev@Local', 'hilo-1')).toBe('tabula-dev-local-hilo-1')
     expect(titleOf('  una   pregunta  ')).toBe('una pregunta')
     expect(THREAD_SLUG.test('../etc')).toBe(false)
   })
