@@ -36,7 +36,8 @@ const SESSION = /* GraphQL */ `
 `
 
 function sectionFromHash(): string {
-  const id = window.location.hash.slice(1)
+  // `#ether?s=<token>` opens a section with a parameter; only the part before `?` names the section.
+  const id = window.location.hash.slice(1).split('?')[0] ?? ''
   return SECTIONS.some((s) => s.id === id) ? id : (SECTIONS[0]?.id ?? '')
 }
 

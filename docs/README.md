@@ -2,14 +2,14 @@
 
 URL: https://gravidadev.wefaber.net (vhost nginx en la IP del tailnet).
 
-| Sección                    | Versión | Estado    |
-| -------------------------- | ------- | --------- |
-| Base (auth, shell, deploy) | v0.1.0  | hecho     |
-| Containers y energía       | v0.2.0  | hecho     |
-| APIs y últimas llamadas    | v0.3.0  | hecho     |
-| Base de datos              | v0.4.0  | hecho     |
-| Git                        | v0.5.0  | hecho     |
-| Ask Ether                  | v0.6.0  | pendiente |
+| Sección                    | Versión | Estado |
+| -------------------------- | ------- | ------ |
+| Base (auth, shell, deploy) | v0.1.0  | hecho  |
+| Containers y energía       | v0.2.0  | hecho  |
+| APIs y últimas llamadas    | v0.3.0  | hecho  |
+| Base de datos              | v0.4.0  | hecho  |
+| Git                        | v0.5.0  | hecho  |
+| Ask Ether                  | v0.6.0  | hecho  |
 
 - [ADR 0001](adr/0001-host-process-libpod.md) Proceso en el host y Podman por el socket
 - [ADR 0002](adr/0002-tailnet-whois-tokens.md) Dominio en el tailnet, whois y tokens
