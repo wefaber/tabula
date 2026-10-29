@@ -31,9 +31,12 @@ import { runsFor } from '../runner'
 import {
   addMessage,
   closeDangling,
+  createShare,
+  getShare,
   listMessages,
   listThreads,
   prune,
+  revokeShare,
   sessionId,
   THREAD_SLUG,
   titleOf,
@@ -452,5 +455,91 @@ describe('permisos en GraphQL', () => {
       ),
     ).toContain('systemctl')
     await runs.approve(faku, runId, true)
+  })
+})
+
+describe('compartir respuesta', () => {
+  const MEMBERS = 'faku@x:admin:Faku,pablo@x:member:Pablo,ana@x:member:Ana'
+
+  async function answered() {
+    const deps = testDeps(MEMBERS)
+    const pablo = userByLogin(deps.db, 'pablo@x')!
+    const ana = userByLogin(deps.db, 'ana@x')!
+    const runs = new EtherRuns(deps, fixtureEther(), { pollMs: 5 })
+    await runs.ask(pablo, 'comp', 'hola')
+    await until(() =>
+      listMessages(deps.db, pablo.id, 'comp').some(
+        (m) => m.role === 'ether' && m.status === 'done',
+      ),
+    )
+    const answer = listMessages(deps.db, pablo.id, 'comp').find(
+      (m) => m.role === 'ether',
+    )!
+    return { deps, pablo, ana, answer }
+  }
+
+  test('el dueño comparte la respuesta, otro usuario la lee, y el dueño la revoca', async () => {
+    const { deps, pablo, ana, answer } = await answered()
+    const now = new Date()
+    const token = createShare(deps.db, pablo.id, answer.id, now)!
+    expect(token).toMatch(/^[0-9a-f]{32}$/)
+    expect(createShare(deps.db, pablo.id, answer.id, now)).toBe(token)
+    expect(getShare(deps.db, token)).toMatchObject({
+      question: 'hola',
+      sharedBy: 'pablo@x',
+    })
+    expect(getShare(deps.db, token)?.answer).toContain('db, back y front')
+    expect(createShare(deps.db, ana.id, answer.id, now)).toBeNull()
+    expect(revokeShare(deps.db, ana, token, now)).toBe(false)
+    expect(revokeShare(deps.db, pablo, token, now)).toBe(true)
+    expect(getShare(deps.db, token)).toBeNull()
+  })
+
+  test('un admin puede revocar un link ajeno, y no se comparte algo pendiente', async () => {
+    const { deps, pablo, answer } = await answered()
+    const faku = userByLogin(deps.db, 'faku@x')!
+    const token = createShare(deps.db, pablo.id, answer.id, new Date())!
+    expect(revokeShare(deps.db, faku, token, new Date())).toBe(true)
+    const t = touchThread(deps.db, pablo.id, 'pend', 'x', new Date())
+    const pending = addMessage(deps.db, t, 'ether', '', new Date(), {
+      status: 'pending',
+    })
+    expect(createShare(deps.db, pablo.id, pending, new Date())).toBeNull()
+  })
+
+  test('por GraphQL: cualquier logueado lee la respuesta; el token inválido da null', async () => {
+    const { deps, pablo, ana, answer } = await answered()
+    const share = async (
+      user: typeof pablo,
+      query: string,
+      variables: Record<string, unknown>,
+    ) =>
+      execute({
+        schema,
+        document: parse(query),
+        variableValues: variables,
+        contextValue: { ...deps, user, method: 'token' },
+      })
+    const made = await share(
+      pablo,
+      'mutation($m: Int!) { etherShare(messageId: $m) }',
+      { m: answer.id },
+    )
+    const token = (made.data as { etherShare: string }).etherShare
+    const read = await share(
+      ana,
+      'query($t: String!) { etherShared(token: $t) { question answer sharedBy } }',
+      { t: token },
+    )
+    expect(read.data?.etherShared).toMatchObject({
+      question: 'hola',
+      sharedBy: 'pablo@x',
+    })
+    const bad = await share(
+      ana,
+      'query($t: String!) { etherShared(token: $t) { answer } }',
+      { t: 'nope' },
+    )
+    expect(bad.data?.etherShared).toBeNull()
   })
 })

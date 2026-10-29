@@ -2,11 +2,16 @@
 // Approving is admin-only. A run's events are on the bus channel `ether-<runId>`, not in these responses.
 import type { ToolStep } from '../../../shared/ether'
 import { builder, fail, requireAdmin } from '../../graphql/builder'
+import { audit } from '../../audit'
 import {
   THREAD_SLUG,
+  createShare,
+  getShare,
   listMessages,
   listThreads,
+  revokeShare,
   type MessageRow,
+  type SharedAnswer,
   type ThreadRow,
 } from './store'
 import { runsFor } from './runner'
@@ -27,8 +32,20 @@ const MessageRef = builder.objectRef<MessageRow>('EtherMessage').implement({
     status: t.exposeString('status'),
     runId: t.exposeString('runId', { nullable: true }),
     createdAt: t.exposeString('createdAt'),
+    shareToken: t.exposeString('shareToken', { nullable: true }),
   }),
 })
+
+const SharedRef = builder
+  .objectRef<SharedAnswer>('EtherSharedAnswer')
+  .implement({
+    fields: (t) => ({
+      question: t.exposeString('question', { nullable: true }),
+      answer: t.exposeString('answer'),
+      sharedBy: t.exposeString('sharedBy'),
+      sharedAt: t.exposeString('sharedAt'),
+    }),
+  })
 
 const ToolStepRef = builder.objectRef<ToolStep>('EtherToolStep').implement({
   fields: (t) => ({
@@ -120,6 +137,14 @@ builder.queryFields((t) => ({
       }
     },
   }),
+  etherShared: t.field({
+    type: SharedRef,
+    nullable: true,
+    description:
+      'Respuesta compartida por un link. Solo lectura; cualquier usuario logueado la puede abrir.',
+    args: { token: t.arg.string({ required: true }) },
+    resolve: (_root, { token }, ctx) => getShare(ctx.db, token),
+  }),
   etherHealth: t.field({
     type: HealthRef,
     description:
@@ -149,6 +174,27 @@ builder.mutationFields((t) => ({
     resolve: async (_root, { runId, deny }, ctx) => {
       requireAdmin(ctx)
       await runsFor(ctx).approve(ctx.user, runId, deny ?? false)
+      return true
+    },
+  }),
+  etherShare: t.string({
+    description:
+      'Comparte una respuesta terminada de tu hilo. Devuelve el token del link.',
+    args: { messageId: t.arg.int({ required: true }) },
+    resolve: (_root, { messageId }, ctx) => {
+      const token = createShare(ctx.db, ctx.user.id, messageId, new Date())
+      if (!token)
+        fail('NOT_FOUND', 'No encontré esa respuesta, o todavía no terminó.')
+      audit(ctx.db, ctx.user, 'ether.share', String(messageId))
+      return token
+    },
+  }),
+  etherUnshare: t.boolean({
+    args: { token: t.arg.string({ required: true }) },
+    resolve: (_root, { token }, ctx) => {
+      if (!revokeShare(ctx.db, ctx.user, token, new Date()))
+        fail('NOT_FOUND', 'No encontré ese link, o ya no estaba compartido.')
+      audit(ctx.db, ctx.user, 'ether.unshare', '')
       return true
     },
   }),

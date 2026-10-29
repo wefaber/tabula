@@ -6,9 +6,11 @@ import { AgentOrb } from '@wefaber/orb'
 import { Button, Chip, EmptyState, Textarea, Tile } from '@wefaber/ui'
 import {
   Check,
+  Copy,
   Plus,
   RotateCw,
   Send,
+  Share2,
   ShieldAlert,
   Square,
   X,
@@ -39,6 +41,15 @@ interface Message {
   status: 'pending' | 'done' | 'failed' | 'cancelled'
   runId: string | null
   createdAt: string
+  /** Active share link of this answer, when the owner shared it. */
+  shareToken: string | null
+}
+
+interface Shared {
+  question: string | null
+  answer: string
+  sharedBy: string
+  sharedAt: string
 }
 
 interface RunView extends RunState {
@@ -109,7 +120,31 @@ const MESSAGES = /* GraphQL */ `
       status
       runId
       createdAt
+      shareToken
     }
+  }
+`
+
+const SHARED = /* GraphQL */ `
+  query EtherShared($token: String!) {
+    etherShared(token: $token) {
+      question
+      answer
+      sharedBy
+      sharedAt
+    }
+  }
+`
+
+const SHARE = /* GraphQL */ `
+  mutation EtherShare($messageId: Int!) {
+    etherShare(messageId: $messageId)
+  }
+`
+
+const UNSHARE = /* GraphQL */ `
+  mutation EtherUnshare($token: String!) {
+    etherUnshare(token: $token)
   }
 `
 
@@ -154,6 +189,14 @@ const STOP = /* GraphQL */ `
 
 const newThread = () => crypto.randomUUID().slice(0, 8)
 
+const readShareToken = (): string | null => {
+  if (!window.location.hash.startsWith('#ether')) return null
+  return new URLSearchParams(window.location.hash.split('?')[1] ?? '').get('s')
+}
+
+const linkFor = (token: string) =>
+  `${window.location.origin}${window.location.pathname}#ether?s=${token}`
+
 /** The same state the server reduces, rebuilt from a stored view when a page opens mid-run. */
 const stateOf = (view: RunView): RunState => ({
   phase: view.phase as RunState['phase'],
@@ -193,6 +236,13 @@ export default function Section() {
   const [attach, setAttach] = useState<Attach | null>(null)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [draft, setDraft] = useState('')
+  const [sharedToken, setSharedToken] = useState(readShareToken)
+
+  useEffect(() => {
+    const onHash = () => setSharedToken(readShareToken())
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
   // A run that is still in flight in this thread (a reload, or a thread reopened) is picked up again.
   const stored = messages.data?.etherMessages
@@ -301,6 +351,15 @@ export default function Section() {
     ask.mutate(q)
   }
 
+  // A shared link (`#ether?s=<token>`) opens the read-only answer instead of the conversation.
+  if (sharedToken) {
+    return (
+      <Tile title="Respuesta compartida" className="min-h-[70svh]">
+        <SharedView token={sharedToken} />
+      </Tile>
+    )
+  }
+
   const sameThread = live?.thread === thread
   const running = sameThread && live !== null && !isTerminal(live.state.phase)
   const healthBad = health.data !== undefined && !health.data.etherHealth.ok
@@ -388,6 +447,12 @@ export default function Section() {
               tone={m.status === 'failed' ? 'error' : undefined}
             >
               {m.body}
+              {m.role === 'ether' && m.status === 'done' ? (
+                <ShareControl
+                  message={m}
+                  onChanged={() => void messages.refetch()}
+                />
+              ) : null}
             </Bubble>
           ))}
 
@@ -555,6 +620,115 @@ function Bubble({
         className={`whitespace-pre-wrap text-body-lg ${tone === 'error' ? 'text-danger' : ''}`}
       >
         {children}
+      </div>
+    </div>
+  )
+}
+
+/** Share control under a finished answer: create the link, copy it, or stop sharing it. */
+function ShareControl({
+  message,
+  onChanged,
+}: {
+  message: Message
+  onChanged: () => void
+}) {
+  const [link, setLink] = useState<string | null>(null)
+  const share = useMutation({
+    mutationFn: () =>
+      gql<{ etherShare: string }>(SHARE, { messageId: message.id }).then(
+        (d) => d.etherShare,
+      ),
+    onSuccess: (token) => {
+      setLink(linkFor(token))
+      onChanged()
+    },
+  })
+  const unshare = useMutation({
+    mutationFn: (token: string) => gql(UNSHARE, { token }),
+    onSuccess: () => {
+      setLink(null)
+      onChanged()
+    },
+  })
+  const url = link ?? (message.shareToken ? linkFor(message.shareToken) : null)
+
+  if (!url)
+    return (
+      <div className="mt-2">
+        <Button
+          variant="ghost"
+          onClick={() => share.mutate()}
+          disabled={share.isPending}
+        >
+          <Share2 className="size-4" aria-hidden />
+          Compartir respuesta
+        </Button>
+      </div>
+    )
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <input
+        readOnly
+        value={url}
+        aria-label="Link de la respuesta compartida"
+        onFocus={(e) => e.currentTarget.select()}
+        className="min-w-0 flex-1 rounded-control border border-border bg-bg px-2 py-1 font-mono text-meta"
+      />
+      <Button
+        onClick={() => void navigator.clipboard?.writeText(url).catch(() => {})}
+      >
+        <Copy className="size-4" aria-hidden />
+        Copiar
+      </Button>
+      <Button
+        variant="ghost"
+        onClick={() => message.shareToken && unshare.mutate(message.shareToken)}
+        disabled={unshare.isPending || !message.shareToken}
+      >
+        Dejar de compartir
+      </Button>
+    </div>
+  )
+}
+
+/** Read-only answer behind a share link. It shows the text only: never the run, its stream or its approvals. */
+function SharedView({ token }: { token: string }) {
+  const shared = useQuery({
+    queryKey: ['ether', 'shared', token],
+    queryFn: () =>
+      gql<{ etherShared: Shared | null }>(SHARED, { token }).then(
+        (d) => d.etherShared,
+      ),
+    retry: false,
+  })
+  const back = () => {
+    window.location.hash = 'ether'
+  }
+
+  if (shared.isPending) return <p className="text-muted">Cargando…</p>
+  if (!shared.data)
+    return (
+      <div className="flex flex-col gap-3">
+        <EmptyState>
+          Esta respuesta ya no está compartida, o el link está mal.
+        </EmptyState>
+        <Button onClick={back}>Volver a mis consultas</Button>
+      </div>
+    )
+
+  return (
+    <div className="flex flex-col gap-3">
+      {shared.data.question ? (
+        <Bubble who="Pregunta">{shared.data.question}</Bubble>
+      ) : null}
+      <Bubble who="Ether">{shared.data.answer}</Bubble>
+      <p className="text-meta text-muted">
+        Compartida por {shared.data.sharedBy} · solo lectura
+      </p>
+      <div>
+        <Button onClick={back}>Volver a mis consultas</Button>
       </div>
     </div>
   )

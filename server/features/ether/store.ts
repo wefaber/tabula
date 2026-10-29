@@ -1,5 +1,7 @@
 // Threads and messages in the panel's own SQLite (migration 0060). Per user: nobody reads another person's threads.
 import type { Database } from 'bun:sqlite'
+import { randomBytes } from 'node:crypto'
+import type { User } from '../../auth'
 
 export interface ThreadRow {
   id: number
@@ -16,8 +18,18 @@ export interface MessageRow {
   runId: string | null
   status: 'pending' | 'done' | 'failed' | 'cancelled'
   createdAt: string
+  /** Active share of this answer, when the owner shared it. */
+  shareToken: string | null
 }
 
+export interface SharedAnswer {
+  question: string | null
+  answer: string
+  sharedBy: string
+  sharedAt: string
+}
+
+export const SHARE_TOKEN = /^[0-9a-f]{32}$/
 export const RETENTION_DAYS = 30
 export const MAX_THREADS_PER_USER = 40
 export const MAX_BODY = 20_000
@@ -48,7 +60,8 @@ export function listMessages(
 ): MessageRow[] {
   return db
     .query<MessageRow, [number, string]>(
-      `SELECT m.id, m.role, m.body, m.run_id AS runId, m.status, m.created_at AS createdAt
+      `SELECT m.id, m.role, m.body, m.run_id AS runId, m.status, m.created_at AS createdAt,
+              (SELECT s.token FROM ether_shares s WHERE s.message_id = m.id AND s.revoked_at IS NULL) AS shareToken
        FROM ether_messages m JOIN ether_threads t ON t.id = m.thread_id
        WHERE t.user_id = ? AND t.slug = ? ORDER BY m.id`,
     )
@@ -159,4 +172,68 @@ export function prune(db: Database, now: Date): number {
     )
     .run(MAX_THREADS_PER_USER).changes
   return removed
+}
+
+/** Shares one finished answer from the caller's own thread. The same active token comes back if it is already shared. */
+export function createShare(
+  db: Database,
+  userId: number,
+  messageId: number,
+  now: Date,
+): string | null {
+  const own = db
+    .query<{ id: number }, [number, number]>(
+      `SELECT m.id FROM ether_messages m JOIN ether_threads t ON t.id = m.thread_id
+       WHERE m.id = ? AND t.user_id = ? AND m.role = 'ether' AND m.status = 'done'`,
+    )
+    .get(messageId, userId)
+  if (!own) return null
+  const active = db
+    .query<{ token: string }, [number]>(
+      'SELECT token FROM ether_shares WHERE message_id = ? AND revoked_at IS NULL',
+    )
+    .get(messageId)
+  if (active) return active.token
+  const token = randomBytes(16).toString('hex')
+  db.query(
+    'INSERT INTO ether_shares (token, message_id, created_by, created_at) VALUES (?, ?, ?, ?)',
+  ).run(token, messageId, userId, now.toISOString())
+  return token
+}
+
+/** Read-only view of a shared answer: its text and the question before it. Nothing about the run. */
+export function getShare(db: Database, token: string): SharedAnswer | null {
+  if (!SHARE_TOKEN.test(token)) return null
+  return (
+    db
+      .query<SharedAnswer, [string]>(
+        `SELECT (SELECT q.body FROM ether_messages q WHERE q.thread_id = m.thread_id AND q.role = 'user' AND q.id < m.id
+                 ORDER BY q.id DESC LIMIT 1) AS question,
+                m.body AS answer, u.login AS sharedBy, s.created_at AS sharedAt
+         FROM ether_shares s
+         JOIN ether_messages m ON m.id = s.message_id
+         JOIN ether_threads t ON t.id = m.thread_id
+         JOIN users u ON u.id = t.user_id
+         WHERE s.token = ? AND s.revoked_at IS NULL`,
+      )
+      .get(token) ?? null
+  )
+}
+
+/** The owner of the answer, or an admin, stops the link. */
+export function revokeShare(
+  db: Database,
+  user: Pick<User, 'id' | 'role'>,
+  token: string,
+  now: Date,
+): boolean {
+  if (!SHARE_TOKEN.test(token)) return false
+  return (
+    db
+      .query(
+        `UPDATE ether_shares SET revoked_at = ?
+         WHERE token = ? AND revoked_at IS NULL AND (created_by = ? OR ? = 'admin')`,
+      )
+      .run(now.toISOString(), token, user.id, user.role).changes === 1
+  )
 }
