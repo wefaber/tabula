@@ -13,7 +13,7 @@ export interface AllowedUser {
 
 export interface Config {
   production: boolean
-  /** Fixture adapters instead of Podman, MariaDB, GitHub and Hermes: local dev and tests. */
+  /** Fixture adapters instead of Podman, MariaDB, GitHub and DeepSeek: local dev and tests. */
   fixtures: boolean
   /** Local dev only: acts as the `Tailscale-User-Login` header Serve would inject. Ignored in production. */
   devLogin: string
@@ -39,7 +39,8 @@ export interface Config {
     dbPassword: string
   }
   github: { repo: string; token: string }
-  ether: { url: string; key: string; profile: string }
+  /** Ask Ether talks straight to DeepSeek (OpenAI-compatible chat). `repos` are the GitHub repos it reads for context. */
+  ether: { url: string; key: string; model: string; repos: string[] }
 }
 
 export function parseUsers(raw: string): AllowedUser[] {
@@ -101,9 +102,13 @@ export function loadConfig(
       token: env.GITHUB_TOKEN ?? '',
     },
     ether: {
-      url: env.ETHER_URL ?? 'http://127.0.0.1:8642',
-      key: env.ETHER_KEY ?? '',
-      profile: env.ETHER_PROFILE ?? 'gravida',
+      url: env.DEEPSEEK_URL ?? 'https://api.deepseek.com/v1',
+      key: env.DEEPSEEK_API_KEY ?? '',
+      model: env.DEEPSEEK_MODEL ?? 'deepseek-flash',
+      repos: (env.ETHER_REPOS ?? 'nexus-iti/gravida,nexus-iti/docs')
+        .split(',')
+        .map((r) => r.trim())
+        .filter(Boolean),
     },
   }
 }

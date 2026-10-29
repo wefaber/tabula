@@ -54,7 +54,10 @@ export async function readiness({
     if (!config.github.token)
       problems.push({ module: 'Git', detail: 'Falta GITHUB_TOKEN.' })
     if (!config.ether.key)
-      problems.push({ module: 'Ask Ether', detail: 'Falta ETHER_KEY.' })
+      problems.push({
+        module: 'Ask Ether',
+        detail: 'Falta DEEPSEEK_API_KEY.',
+      })
   }
   return {
     ok: dbOk && pending === 0 && podmanOk,

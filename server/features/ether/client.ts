@@ -1,7 +1,6 @@
-// Hermes run API (Ether), behind one interface: `etherClient` over fetch for the VPS, `fixtureEther` for dev and tests.
-// Contract: POST /p/<profile>/v1/runs {input, session_id} -> {run_id}; GET .../runs/<id>/events (SSE, ends with a
-// run.* event); GET .../runs/<id>; POST .../approval {choice}; POST .../stop. A run survives the request that started
-// it, so a request that times out is NEVER sent again: resending would duplicate side effects on the server.
+// Ask Ether's model, behind one interface: `deepseekEther` over fetch (DeepSeek chat completions, OpenAI-compatible,
+// streamed) and `fixtureEther` for dev and tests. Ether is the panel's assistant, not an agent: it has no tools of its
+// own. Everything it knows travels in the prompt (panel snapshot + repo context), so a run is one stateless completion.
 import type { EtherEvent } from '../../../shared/ether'
 import type { Config } from '../../config'
 
@@ -28,10 +27,10 @@ export interface RunStatus {
 }
 
 export interface EtherClient {
-  /** GET /v1/health: is Ether answering? `reason` is user-facing when it is not. */
+  /** Is the model endpoint answering with this key? `reason` is user-facing when it is not. */
   ping(): Promise<{ ok: boolean; reason: string }>
-  /** Starts a run and returns its id. Throws without retrying. */
-  start(input: string, sessionId: string): Promise<string>
+  /** Starts a run and returns its id once the model accepted the request. Throws without retrying. */
+  start(input: string, sessionId: string, system?: string): Promise<string>
   /** Events until a terminal one (done/error). Ends silently when `signal` aborts. */
   events(runId: string, signal: AbortSignal): AsyncIterable<EtherEvent>
   status(runId: string): Promise<RunStatus>
@@ -39,247 +38,266 @@ export interface EtherClient {
   stop(runId: string): Promise<void>
 }
 
-const START_TIMEOUT_MS = 20_000
-const CALL_TIMEOUT_MS = 15_000
+const RUN_TIMEOUT_MS = 180_000
+const PING_TIMEOUT_MS = 5_000
+const TEMPERATURE = 0.2
 
-const asText = (v: unknown): string => (typeof v === 'string' ? v : '')
-
-/** What Ether wants approved, as one short line. Never longer than a command should be. */
-export function approvalSummary(raw: unknown): string {
-  if (typeof raw === 'string') return raw.slice(0, 500)
-  if (raw && typeof raw === 'object') {
-    const o = raw as Record<string, unknown>
-    for (const key of ['command', 'description', 'message', 'summary']) {
-      const v = asText(o[key])
-      if (v) return v.slice(0, 500)
-    }
-    return JSON.stringify(raw).slice(0, 500)
-  }
-  return 'Ether pide permiso para seguir.'
-}
-
-/** One decoded SSE `data:` payload -> the panel's event, or null for the ones the panel ignores. */
-export function mapHermesEvent(
-  ev: Record<string, unknown>,
-  fallbackName = '',
-): EtherEvent | null {
-  const name = asText(ev.event) || asText(ev.type) || fallbackName
-  switch (name) {
-    case 'message.delta': {
-      const text = asText(ev.delta)
-      return text ? { type: 'delta', text } : null
-    }
-    case 'tool.started':
-      return {
-        type: 'tool',
-        tool: asText(ev.tool) || 'tool',
-        preview: asText(ev.preview).slice(0, 240),
-      }
-    case 'run.completed':
-      return { type: 'done', status: 'completed', output: asText(ev.output) }
-    case 'run.cancelled':
-    case 'run.stopped':
-      return { type: 'done', status: 'cancelled', output: asText(ev.output) }
-    case 'run.failed':
-    case 'run.error':
-      return {
-        type: 'error',
-        message: asText(ev.error) || 'Ether no pudo terminar la consulta.',
-        offline: false,
-      }
-  }
-  if (
-    name.includes('approval') &&
-    !/resolved|responded|granted|denied/.test(name)
-  )
-    return { type: 'approval', summary: approvalSummary(ev.approval ?? ev) }
-  return null
-}
-
-/** Incremental SSE parser: feed text chunks, get decoded `{name, data}` frames. */
-export function sseFrames() {
+/** Incremental SSE parser: feed text chunks, get the `data:` payloads of complete events. */
+export function sseData() {
   let buffer = ''
-  return (chunk: string): { name: string; data: unknown }[] => {
+  return (chunk: string): string[] => {
     buffer += chunk.replaceAll('\r\n', '\n')
-    const frames: { name: string; data: unknown }[] = []
+    const out: string[] = []
     let cut: number
     while ((cut = buffer.indexOf('\n\n')) !== -1) {
       const block = buffer.slice(0, cut)
       buffer = buffer.slice(cut + 2)
-      let name = ''
-      const data: string[] = []
-      for (const line of block.split('\n')) {
-        if (line.startsWith('event:')) name = line.slice(6).trim()
-        else if (line.startsWith('data:')) data.push(line.slice(5).trimStart())
-      }
-      if (data.length === 0) continue
-      try {
-        frames.push({ name, data: JSON.parse(data.join('\n')) })
-      } catch {}
+      const data = block
+        .split('\n')
+        .filter((l) => l.startsWith('data:'))
+        .map((l) => l.slice(5).trimStart())
+      if (data.length) out.push(data.join('\n'))
     }
-    return frames
+    return out
   }
 }
 
-export function etherClient(
+/** Text of one streamed chunk (`choices[0].delta.content`), or null for anything else: an odd event never breaks the answer. */
+export function deltaText(data: string): string | null {
+  let j: unknown
+  try {
+    j = JSON.parse(data)
+  } catch {
+    return null
+  }
+  if (!j || typeof j !== 'object') return null
+  const choices = (j as { choices?: unknown }).choices
+  const first = Array.isArray(choices) ? (choices[0] as unknown) : null
+  if (!first || typeof first !== 'object') return null
+  const delta = (first as { delta?: unknown }).delta
+  if (!delta || typeof delta !== 'object') return null
+  const content = (delta as { content?: unknown }).content
+  return typeof content === 'string' && content ? content : null
+}
+
+/** The user-facing error for a non-2xx answer of the model endpoint. */
+export function httpError(status: number): EtherError {
+  if (status === 401 || status === 403)
+    return new EtherError(
+      'DeepSeek rechazó la clave del panel.',
+      'AUTH',
+      status,
+    )
+  if (status === 402)
+    return new EtherError(
+      'La cuenta de DeepSeek no tiene saldo.',
+      'HTTP',
+      status,
+    )
+  if (status === 429)
+    return new EtherError(
+      'DeepSeek está limitando las consultas. Probá en un momento.',
+      'HTTP',
+      status,
+    )
+  return new EtherError(
+    `DeepSeek respondió ${status}.`,
+    status >= 500 ? 'OFFLINE' : 'HTTP',
+    status,
+  )
+}
+
+interface LiveRun {
+  parts: string[]
+  state: 'running' | 'completed' | 'cancelled' | 'failed'
+  error: EtherError | null
+  ctl: AbortController
+  wake: Set<() => void>
+}
+
+export function deepseekEther(
   cfg: Config['ether'],
   fetchFn: typeof fetch = fetch,
 ): EtherClient {
-  const base = `${cfg.url.replace(/\/+$/, '')}/p/${encodeURIComponent(cfg.profile)}`
-  const headers = (json = false): Record<string, string> => ({
-    authorization: `Bearer ${cfg.key}`,
-    ...(json ? { 'content-type': 'application/json' } : {}),
-  })
+  const base = cfg.url.replace(/\/+$/, '')
+  const runs = new Map<string, LiveRun>()
+  let counter = 0
 
-  async function call(
-    method: string,
-    path: string,
-    body: unknown,
-    timeoutMs: number,
-  ): Promise<Record<string, unknown>> {
-    if (!cfg.key)
-      throw new EtherError(
-        'Falta la clave de Ether en la config del panel (ETHER_KEY).',
-        'AUTH',
-      )
-    let res: Response
+  const noKey = () =>
+    new EtherError(
+      'Falta la clave de DeepSeek en la config del panel (DEEPSEEK_API_KEY).',
+      'AUTH',
+    )
+  const get = (runId: string): LiveRun => {
+    const run = runs.get(runId)
+    if (!run)
+      throw new EtherError(`No existe la consulta ${runId}.`, 'HTTP', 404)
+    return run
+  }
+  const settle = (
+    run: LiveRun,
+    state: LiveRun['state'],
+    error?: EtherError,
+  ) => {
+    if (run.state !== 'running') return
+    run.state = state
+    run.error = error ?? null
+    for (const w of run.wake) w()
+  }
+
+  /** Reads the streamed body into `run.parts` until the model ends it. Never throws: it settles the run. */
+  async function pump(run: LiveRun, body: ReadableStream<Uint8Array>) {
+    const parse = sseData()
+    const decoder = new TextDecoder()
+    const reader = body.getReader()
     try {
-      res = await fetchFn(base + path, {
-        method,
-        headers: headers(body !== undefined),
-        body: body === undefined ? undefined : JSON.stringify(body),
-        signal: AbortSignal.timeout(timeoutMs),
-      })
-    } catch (e) {
-      if (e instanceof Error && e.name === 'TimeoutError')
-        throw new EtherError(
-          'Ether no respondió a tiempo. No reenvié la consulta: puede que igual esté corriendo.',
-          'TIMEOUT',
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        for (const data of parse(decoder.decode(value, { stream: true }))) {
+          if (data === '[DONE]') return settle(run, 'completed')
+          const piece = deltaText(data)
+          if (piece) {
+            run.parts.push(piece)
+            for (const w of run.wake) w()
+          }
+        }
+      }
+      settle(run, 'completed')
+    } catch {
+      if (
+        run.ctl.signal.aborted &&
+        run.ctl.signal.reason?.name !== 'TimeoutError'
+      )
+        settle(run, 'cancelled')
+      else
+        settle(
+          run,
+          'failed',
+          new EtherError('Se cortó la conexión con DeepSeek.', 'OFFLINE'),
         )
-      throw new EtherError('No se pudo conectar con Ether.', 'OFFLINE')
+    } finally {
+      reader.cancel().catch(() => {})
     }
-    if (res.status === 401 || res.status === 403)
-      throw new EtherError(
-        'Ether rechazó la clave del panel.',
-        'AUTH',
-        res.status,
-      )
-    if (!res.ok)
-      throw new EtherError(
-        `Ether respondió ${res.status}.`,
-        res.status >= 500 ? 'OFFLINE' : 'HTTP',
-        res.status,
-      )
-    return (await res.json().catch(() => ({}))) as Record<string, unknown>
   }
 
   return {
     async ping() {
+      if (!cfg.key) return { ok: false, reason: noKey().message }
       try {
-        await call('GET', '/v1/health', undefined, 5_000)
-        return { ok: true, reason: '' }
-      } catch (e) {
-        return {
-          ok: false,
-          reason: e instanceof EtherError ? e.message : 'Ether no responde.',
-        }
+        const res = await fetchFn(`${base}/models`, {
+          headers: { authorization: `Bearer ${cfg.key}` },
+          signal: AbortSignal.timeout(PING_TIMEOUT_MS),
+        })
+        return res.ok
+          ? { ok: true, reason: '' }
+          : { ok: false, reason: httpError(res.status).message }
+      } catch {
+        return { ok: false, reason: 'No se pudo conectar con DeepSeek.' }
       }
     },
 
-    async start(input, sessionId) {
-      const out = await call(
-        'POST',
-        '/v1/runs',
-        { input, session_id: sessionId },
-        START_TIMEOUT_MS,
-      )
-      const id = asText(out.run_id)
-      if (!id)
-        throw new EtherError('Ether no devolvió el id de la consulta.', 'HTTP')
-      return id
+    async start(input, _sessionId, system = '') {
+      if (!cfg.key) throw noKey()
+      const ctl = new AbortController()
+      const run: LiveRun = {
+        parts: [],
+        state: 'running',
+        error: null,
+        ctl,
+        wake: new Set(),
+      }
+      let res: Response
+      try {
+        res = await fetchFn(`${base}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${cfg.key}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: cfg.model,
+            temperature: TEMPERATURE,
+            stream: true,
+            messages: [
+              ...(system ? [{ role: 'system', content: system }] : []),
+              { role: 'user', content: input },
+            ],
+          }),
+          signal: AbortSignal.any([
+            ctl.signal,
+            AbortSignal.timeout(RUN_TIMEOUT_MS),
+          ]),
+        })
+      } catch (e) {
+        if (e instanceof Error && e.name === 'TimeoutError')
+          throw new EtherError('DeepSeek no respondió a tiempo.', 'TIMEOUT')
+        throw new EtherError('No se pudo conectar con DeepSeek.', 'OFFLINE')
+      }
+      if (!res.ok) throw httpError(res.status)
+      if (!res.body)
+        throw new EtherError('DeepSeek no devolvió respuesta.', 'HTTP')
+      const runId = `run_${Date.now().toString(36)}${String(++counter).padStart(4, '0')}`
+      runs.set(runId, run)
+      void pump(run, res.body)
+      // A finished run is only needed for the runner's late status polls.
+      setTimeout(() => runs.delete(runId), RUN_TIMEOUT_MS + 60_000).unref()
+      return runId
     },
 
     async *events(runId, signal) {
-      if (!cfg.key)
-        throw new EtherError(
-          'Falta la clave de Ether en la config del panel (ETHER_KEY).',
-          'AUTH',
-        )
-      let res: Response
-      try {
-        res = await fetchFn(
-          `${base}/v1/runs/${encodeURIComponent(runId)}/events`,
-          {
-            headers: { ...headers(), accept: 'text/event-stream' },
-            signal,
-          },
-        )
-      } catch {
-        if (signal.aborted) return
-        throw new EtherError('Se cortó la conexión con Ether.', 'OFFLINE')
-      }
-      if (!res.ok || !res.body)
-        throw new EtherError(
-          `Ether respondió ${res.status} al seguir la consulta.`,
-          res.status >= 500 ? 'OFFLINE' : 'HTTP',
-          res.status,
-        )
-      const parse = sseFrames()
-      const decoder = new TextDecoder()
-      const reader = res.body.getReader()
-      try {
-        for (;;) {
-          const { done, value } = await reader.read()
-          if (done) return
-          for (const frame of parse(decoder.decode(value, { stream: true }))) {
-            const mapped = mapHermesEvent(
-              (frame.data ?? {}) as Record<string, unknown>,
-              frame.name,
-            )
-            if (!mapped) continue
-            yield mapped
-            if (mapped.type === 'done' || mapped.type === 'error') return
-          }
+      const run = get(runId)
+      let i = 0
+      for (;;) {
+        while (i < run.parts.length) {
+          if (signal.aborted) return
+          yield { type: 'delta', text: run.parts[i++] ?? '' }
         }
-      } catch {
+        if (run.state !== 'running') break
+        await new Promise<void>((resolve) => {
+          const done = () => {
+            run.wake.delete(done)
+            signal.removeEventListener('abort', done)
+            resolve()
+          }
+          run.wake.add(done)
+          signal.addEventListener('abort', done, { once: true })
+        })
         if (signal.aborted) return
-        throw new EtherError('Se cortó la conexión con Ether.', 'OFFLINE')
-      } finally {
-        reader.cancel().catch(() => {})
       }
+      const output = run.parts.join('')
+      if (run.state === 'failed')
+        yield {
+          type: 'error',
+          message: run.error?.message ?? 'Ether no pudo terminar la consulta.',
+          offline: run.error?.offline ?? false,
+        }
+      else
+        yield {
+          type: 'done',
+          status: run.state === 'cancelled' ? 'cancelled' : 'completed',
+          output,
+        }
     },
 
     async status(runId) {
-      const o = await call(
-        'GET',
-        `/v1/runs/${encodeURIComponent(runId)}`,
-        undefined,
-        CALL_TIMEOUT_MS,
-      )
+      const run = get(runId)
       return {
-        status: asText(o.status),
-        output: asText(o.output),
-        error: asText(o.error),
-        approval: o.approval ? approvalSummary(o.approval) : null,
+        status: run.state === 'failed' ? 'failed' : run.state,
+        output: run.parts.join(''),
+        error: run.error?.message ?? '',
+        approval: null,
       }
     },
 
-    async approve(runId, choice) {
-      await call(
-        'POST',
-        `/v1/runs/${encodeURIComponent(runId)}/approval`,
-        { choice },
-        CALL_TIMEOUT_MS,
-      )
+    async approve() {
+      // Ether has no tools to approve: nothing waits on this.
     },
 
     async stop(runId) {
-      await call(
-        'POST',
-        `/v1/runs/${encodeURIComponent(runId)}/stop`,
-        {},
-        CALL_TIMEOUT_MS,
-      )
+      const run = get(runId)
+      run.ctl.abort()
+      settle(run, 'cancelled')
     },
   }
 }
@@ -308,10 +326,10 @@ export const FIXTURE_DIAGRAM = [
   '  Panel[Tabula] --> API[API Elysia]',
   '  API --> Podman[Podman rootless]',
   '  API --> GitHub[GitHub REST]',
-  '  API --> Hermes[Ether Hermes]',
+  '  API --> LLM[DeepSeek]',
   '```',
   '',
-  'La API habla con Podman por el socket, con GitHub en solo lectura y con Hermes por loopback.',
+  'La API habla con Podman por el socket, con GitHub en solo lectura y con DeepSeek para Ether.',
 ].join('\n')
 export const FIXTURE_DIAGRAM_QUESTION = /diagrama/i
 
