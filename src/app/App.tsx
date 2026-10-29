@@ -10,8 +10,10 @@ import { AlertTriangle, LogOut } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
 import { SECTIONS } from '@/features/registry'
 import { ApiError, gql } from '@/lib/api'
+import { useT } from '@/lib/i18n'
 import { Loader } from './Loader'
 import { Login } from './Login'
+import { PreferencesButton } from './Preferences'
 import { SectionBoundary } from './SectionBoundary'
 import { Shortcuts } from './Shortcuts'
 
@@ -65,6 +67,7 @@ export default function App() {
   })
   const [active, setActive] = useState(sectionFromHash)
   const [problemsOpen, setProblemsOpen] = useState(false)
+  const t = useT()
 
   useEffect(() => {
     const onHash = () => setActive(sectionFromHash())
@@ -81,9 +84,9 @@ export default function App() {
   if (session.error) {
     return (
       <p role="alert" className="p-6 text-danger">
-        No se pudo conectar con el panel ({session.error.message}).{' '}
+        {t('shell.sessionError', { error: session.error.message })}{' '}
         <button className="underline" onClick={() => session.refetch()}>
-          Reintentar
+          {t('common.retry')}
         </button>
       </p>
     )
@@ -98,7 +101,7 @@ export default function App() {
       <header className="sticky top-0 z-30 -mx-4 flex flex-wrap items-center gap-3 bg-bg/90 px-4 py-2 backdrop-blur">
         <h1 className="font-display text-h3 font-semibold">Tabula</h1>
         <nav
-          aria-label="Secciones"
+          aria-label={t('shell.sections')}
           className="flex flex-wrap gap-1"
           role="tablist"
         >
@@ -121,13 +124,13 @@ export default function App() {
             <Popover
               open={problemsOpen}
               onOpenChange={setProblemsOpen}
-              label="Módulos con fallas"
+              label={t('shell.problems.label')}
               trigger={(props) => (
                 <Button variant="ghost" className="text-warning" {...props}>
                   <AlertTriangle aria-hidden className="size-4" />
                   {system.problems.length === 1
-                    ? '1 módulo con fallas'
-                    : `${system.problems.length} módulos con fallas`}
+                    ? t('shell.problems.one')
+                    : t('shell.problems.many', { n: system.problems.length })}
                 </Button>
               )}
             >
@@ -144,10 +147,11 @@ export default function App() {
               </ul>
             </Popover>
           ) : (
-            <span className="text-success">Panel ok</span>
+            <span className="text-success">{t('shell.ok')}</span>
           )}
-          {system.fixtures ? <span>datos de prueba</span> : null}
+          {system.fixtures ? <span>{t('shell.fixtures')}</span> : null}
           <span>{me.name}</span>
+          <PreferencesButton />
           <Button
             variant="secondary"
             onClick={async () => {
@@ -156,7 +160,7 @@ export default function App() {
             }}
           >
             <LogOut aria-hidden className="size-4" />
-            Salir
+            {t('shell.logout')}
           </Button>
         </div>
       </header>
