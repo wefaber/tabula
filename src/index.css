@@ -13,6 +13,20 @@ html {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-ui);
+  /* Escala de texto (Preferencias). Zoom y no font-size: los tokens de tipo son en px, y solo zoom las escala todas. */
+  zoom: var(--ui-scale, 1);
+}
+
+/* Contraste alto (Preferencias): más peso al texto secundario y a los bordes, sobre los tokens de forest. */
+:root[data-contrast='high'] {
+  --text-muted: oklch(0.92 0.02 135);
+  --border: oklch(0.6 0.04 146);
+  --tile-edge: var(--border);
+}
+
+:root[data-contrast='high'][data-theme='light'] {
+  --text-muted: oklch(0.3 0.04 146);
+  --border: oklch(0.55 0.03 140);
 }
 
 body {
