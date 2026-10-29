@@ -2,14 +2,24 @@
 
 Panel de desarrollo del stack de Gravida (NEXUS) para Faku, Pablo y Jean. URL: **https://gravidadev.wefaber.net** (solo tailnet).
 
-- Estado de las APIs y de los containers (`nexus-test`: db, back, front)
-- Últimas llamadas a la API
-- Editor de la base de datos
-- Encender, apagar y reiniciar el stack
-- Git y últimos pushes (`@wefaber/gitview`)
-- Ask Ether, preguntas sobre el sistema
+Todo en una pantalla, con el stack `nexus-test` (db, back, front) como sistema:
 
-Estado por sección: [docs/README.md](docs/README.md). Arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md).
+| Sección       | Qué hace                                                                           |
+| ------------- | ---------------------------------------------------------------------------------- |
+| Containers    | Estado, CPU/memoria y logs en vivo. Encender, apagar y reiniciar, con confirmación |
+| APIs          | Chequeo cada 30 s de cada `api/*.php` y de la base, con historial de 24 h          |
+| Llamadas      | Últimas 500 llamadas a la API, en vivo y con filtro                                |
+| Base de datos | Tablas, edición de filas y consola SQL (escritura solo admin, con dump previo)     |
+| Git           | Grafo de ramas (`@wefaber/gitview`), últimos pushes, CI y deploy por commit        |
+| Ask Ether     | Preguntas sobre el sistema con aprobaciones y respuestas compartibles              |
+| Acceso        | Tokens personales                                                                  |
+
+Detalle de cada una: [docs/features.md](docs/features.md). Estado por versión: [docs/README.md](docs/README.md). Arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Flujo de trabajo
+
+`<tipo>/<función>` → PR a `dev` → PR `dev` → `main` (producción). `main` despliega solo (blue/green, con verificación y rollback).
+Detalle en [ARCHITECTURE.md](ARCHITECTURE.md#flujo-de-ramas).
 
 ## Desarrollo
 
