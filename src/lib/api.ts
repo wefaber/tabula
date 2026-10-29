@@ -25,6 +25,13 @@ export async function gql<T>(
     body: JSON.stringify({ query, variables }),
     credentials: 'same-origin',
   })
+  // A proxy or crash answers with HTML, not GraphQL: say so before trying to read it as JSON.
+  if (res.status >= 500)
+    throw new ApiError(
+      `El servidor respondió ${res.status}.`,
+      'SERVER_ERROR',
+      res.status,
+    )
   const body = (await res.json().catch(() => ({}))) as GqlResponse<T>
   if (res.status === 401)
     throw new ApiError(

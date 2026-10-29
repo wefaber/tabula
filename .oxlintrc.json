@@ -10,13 +10,5 @@
       }
     ]
   },
-  "overrides": [
-    {
-      "files": ["server/**", "scripts/**"],
-      "rules": {
-        "react/rules-of-hooks": "off"
-      }
-    }
-  ],
   "ignorePatterns": ["dist", "data"]
 }

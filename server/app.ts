@@ -1,6 +1,6 @@
 // HTTP shell: /health, /ready, token login, /graphql, /sse/:channel and, in production, the built SPA.
 import { Elysia } from 'elysia'
-import { createYoga, useExtendContext } from 'graphql-yoga'
+import { createYoga } from 'graphql-yoga'
 import { existsSync } from 'node:fs'
 import { join, normalize } from 'node:path'
 import {
@@ -15,7 +15,8 @@ import {
 import { audit } from './audit'
 import { CHANNEL, sseResponse } from './bus'
 import type { Ctx, Deps } from './deps'
-import { useLimits } from './graphql/limits'
+
+import { limitsPlugin } from './graphql/limits'
 import { schema } from './graphql/schema'
 import { readiness } from './ready'
 
@@ -50,13 +51,13 @@ export function createApp(
   deps: Deps,
   { distDir = join(import.meta.dir, '..', 'dist') } = {},
 ) {
-  const yoga = createYoga<{ ctx: Omit<Ctx, keyof Deps> }>({
+  const yoga = createYoga<{ ctx: Ctx }>({
     schema,
     graphqlEndpoint: '/graphql',
     graphiql: !deps.config.production,
     landingPage: false,
     maskedErrors: true,
-    plugins: [useLimits(), useExtendContext(() => deps)],
+    plugins: [limitsPlugin()],
     context: ({ ctx }) => ctx,
   })
 
@@ -113,7 +114,7 @@ export function createApp(
           'Entrá con tu cuenta del tailnet o con un token.',
         )
       return yoga.fetch(request, {
-        ctx: { user: auth.user, method: auth.method },
+        ctx: { ...deps, user: auth.user, method: auth.method },
       })
     })
     .get('/sse/:channel', ({ request, params }) => {
