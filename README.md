@@ -1,35 +1,40 @@
-# React + TypeScript + Vite
+# Tabula
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Panel de desarrollo del stack de Gravida (NEXUS) para Faku, Pablo y Jean. URL: **https://gravidadev.wefaber.net** (solo tailnet).
 
-Currently, two official plugins are available:
+Todo en una pantalla, con el stack `nexus-test` (db, back, front) como sistema:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Sección       | Qué hace                                                                           |
+| ------------- | ---------------------------------------------------------------------------------- |
+| Containers    | Estado, CPU/memoria y logs en vivo. Encender, apagar y reiniciar, con confirmación |
+| APIs          | Chequeo cada 30 s de cada `api/*.php` y de la base, con historial de 24 h          |
+| Llamadas      | Últimas 500 llamadas a la API, en vivo y con filtro                                |
+| Base de datos | Tablas, edición de filas y consola SQL (escritura solo admin, con dump previo)     |
+| Git           | Grafo de ramas (`@wefaber/gitview`), últimos pushes, CI y deploy por commit        |
+| Ask Ether     | Preguntas sobre el sistema con aprobaciones y respuestas compartibles              |
+| Acceso        | Tokens personales                                                                  |
 
-## React Compiler
+Detalle de cada una: [docs/features.md](docs/features.md). Estado por versión: [docs/README.md](docs/README.md). Arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md).
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+## Flujo de trabajo
 
-Note: This will impact Vite dev & build performances.
-You can also try [the experimental native React Compiler support in plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md#rust-react-compiler) by using `compiler: true` in the plugin options instead of using the Babel plugin.
+`<tipo>/<función>` → PR a `dev` → PR `dev` → `main` (producción). `main` despliega solo (blue/green, con verificación y rollback).
+Detalle en [ARCHITECTURE.md](ARCHITECTURE.md#flujo-de-ramas).
 
-## Expanding the Oxlint configuration
+## Desarrollo
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+bun install
+bun run dev          # API con adapters de prueba (sin Podman, DB ni GitHub) en :4171 y Vite en :5173, juntos
+bun run dev:api      # solo la API
+bun run dev:web      # solo Vite (proxy a :4171; `API_PORT` cambia el puerto)
+bun run check        # format + lint + typecheck + test (lo mismo corre el CI)
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+`TABULA_DEV_LOGIN=dev@local` simula la identidad que resolvería el whois del tailnet (ignorado en producción).
+
+## Acceso
+
+Tailnet: entrás solo. nginx escucha en la IP del tailnet, el panel resuelve de quién es el dispositivo (`tailscale whois`) y
+lo compara con `TABULA_USERS` (`login:rol:Nombre,...`). Fuera del tailnet no hay ruta: usá un token personal desde un
+dispositivo que sí llegue (sección Acceso, o `bun run token create <login>` en el server).
