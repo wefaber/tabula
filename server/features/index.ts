@@ -6,5 +6,14 @@ import { feature as containers } from './containers'
 import { feature as db } from './db'
 import { feature as ether } from './ether'
 import { feature as git } from './git'
+import { feature as onboarding } from './onboarding'
 
-export const features: Feature[] = [containers, apis, calls, db, git, ether]
+export const features: Feature[] = [
+  containers,
+  apis,
+  calls,
+  db,
+  git,
+  ether,
+  onboarding,
+]
