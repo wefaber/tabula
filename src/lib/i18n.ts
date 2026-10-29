@@ -15,6 +15,9 @@ const DICT = {
     'shell.ok': 'Panel ok',
     'shell.fixtures': 'datos de prueba',
     'shell.logout': 'Salir',
+    'shell.tailnet': 'Tailnet',
+    'shell.tailnet.hint':
+      'Entraste con tu cuenta del tailnet: no hay sesión para cerrar.',
     'shell.sessionError': 'No se pudo conectar con el panel ({error}).',
     'loader.loading': 'Cargando…',
     'shortcuts.title': 'Atajos de teclado',
@@ -73,7 +76,7 @@ const DICT = {
     'tour.access.p2':
       'El engranaje del encabezado cambia idioma, tema, tamaño de texto y contraste.',
     'tour.access.p3':
-      'Salir cierra tu sesión. Podés repetir esta guía desde el atajo ?.',
+      'Salir cierra la sesión de token (desde el tailnet entrás solo). Repetí esta guía desde Preferencias o el atajo ?.',
     'shortcuts.section':
       'Ir a la sección por número (1 a 7, en el orden del menú)',
     'shortcuts.prev': 'Sección anterior',
@@ -87,6 +90,7 @@ const DICT = {
     'prefs.theme': 'Tema',
     'prefs.scale': 'Tamaño de texto',
     'prefs.contrast': 'Contraste',
+    'prefs.tour': 'Ver recorrido',
     'prefs.saveError': 'No se pudo guardar. Se recargó lo guardado; reintentá.',
     'theme.dark': 'Oscuro',
     'theme.light': 'Claro',
@@ -104,6 +108,9 @@ const DICT = {
     'shell.ok': 'Panel ok',
     'shell.fixtures': 'test data',
     'shell.logout': 'Log out',
+    'shell.tailnet': 'Tailnet',
+    'shell.tailnet.hint':
+      'You are signed in through your tailnet account: there is no session to end.',
     'shell.sessionError': 'Could not connect to the panel ({error}).',
     'loader.loading': 'Loading…',
     'shortcuts.title': 'Keyboard shortcuts',
@@ -159,7 +166,7 @@ const DICT = {
     'tour.access.p2':
       'The gear in the header changes language, theme, text size and contrast.',
     'tour.access.p3':
-      'Sign out ends your session. Repeat this guide from the ? shortcut.',
+      'Log out ends a token session (on the tailnet you are signed in automatically). Repeat this guide from Preferences or the ? shortcut.',
     'shortcuts.section': 'Go to a section by number (1 to 7, in menu order)',
     'shortcuts.prev': 'Previous section',
     'shortcuts.next': 'Next section',
@@ -172,6 +179,7 @@ const DICT = {
     'prefs.theme': 'Theme',
     'prefs.scale': 'Text size',
     'prefs.contrast': 'Contrast',
+    'prefs.tour': 'Take the tour',
     'prefs.saveError':
       'Could not save. The saved values were reloaded; try again.',
     'theme.dark': 'Dark',
