@@ -54,6 +54,12 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Compartir respuesta**: un modal crea un link de solo lectura a una respuesta puntual (`#ether?s=<token>`); el hilo queda privado y el link se puede revocar.
 - El canal SSE de cada run usa una clave secreta que solo reciben el dueño y los admins.
 
+### Referencias y fuentes (v0.6.6)
+
+- **Referencias**: al escribir `@` en la pregunta aparece un picker con los containers, las APIs (`api/*.php`) y las últimas llamadas. Elegir una deja un chip sobre el textarea (`@container:back`, `@api:login`, `@call:<id>`). Flechas para moverse, Enter para elegir, Esc para cerrar. Hasta 5 por pregunta.
+- Al enviar, el server valida cada id contra datos reales y adjunta lo que dice: estado del container, último veredicto de la API o la línea de la llamada. Van en un bloque `<referenced>` con el mismo saneado que el snapshot. Un id inexistente rechaza la pregunta sin escribir el hilo.
+- **Fuentes**: debajo de cada respuesta terminada, una fila «Fuentes» con chips que abren un detalle: la foto del estado (containers, errores recientes, tag activo), los pasos de herramientas del run y cada referencia. Los datos se guardan con el mensaje (migración `0090_ether_sources`, campo `sources` en `EtherMessage`); las respuestas anteriores no tienen fuentes.
+
 ## Pendiente
 
 Ver [issue #12](https://github.com/wefaber/tabula/issues/12) (refactor de componentes grandes) y la lista de VPS en [ARCHITECTURE.md](../ARCHITECTURE.md): runner, `tabula.env`, nginx, DNS y certificado.

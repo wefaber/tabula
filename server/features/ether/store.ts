@@ -2,6 +2,7 @@
 import type { Database } from 'bun:sqlite'
 import { randomBytes } from 'node:crypto'
 import type { User } from '../../auth'
+import type { MessageSources } from '../../../shared/etherRefs'
 
 export interface ThreadRow {
   id: number
@@ -20,6 +21,8 @@ export interface MessageRow {
   createdAt: string
   /** Active share of this answer, when the owner shared it. */
   shareToken: string | null
+  /** What Ether looked at for this answer (migration 0090). Null for questions, old answers and failed starts. */
+  sources: MessageSources | null
 }
 
 export interface SharedAnswer {
@@ -53,19 +56,36 @@ export function listThreads(db: Database, userId: number): ThreadRow[] {
     .all(userId)
 }
 
+/** The stored sources JSON, or null when there is none or it does not parse (never throws on a read). */
+export function parseSources(raw: string | null): MessageSources | null {
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as MessageSources
+  } catch {
+    return null
+  }
+}
+
 export function listMessages(
   db: Database,
   userId: number,
   slug: string,
 ): MessageRow[] {
   return db
-    .query<MessageRow, [number, string]>(
-      `SELECT m.id, m.role, m.body, m.run_id AS runId, m.status, m.created_at AS createdAt,
+    .query<
+      Omit<MessageRow, 'sources'> & { sourcesJson: string | null },
+      [number, string]
+    >(
+      `SELECT m.id, m.role, m.body, m.run_id AS runId, m.status, m.created_at AS createdAt, m.sources AS sourcesJson,
               (SELECT s.token FROM ether_shares s WHERE s.message_id = m.id AND s.revoked_at IS NULL) AS shareToken
        FROM ether_messages m JOIN ether_threads t ON t.id = m.thread_id
        WHERE t.user_id = ? AND t.slug = ? ORDER BY m.id`,
     )
     .all(userId, slug)
+    .map(({ sourcesJson, ...m }) => ({
+      ...m,
+      sources: parseSources(sourcesJson),
+    }))
 }
 
 /** Finds the thread or opens it; touching it moves it to the top of the list. */
@@ -125,10 +145,14 @@ export function finishMessage(
   messageId: number,
   body: string,
   status: MessageRow['status'],
+  sources: MessageSources | null = null,
 ): void {
-  db.query('UPDATE ether_messages SET body = ?, status = ? WHERE id = ?').run(
+  db.query(
+    'UPDATE ether_messages SET body = ?, status = ?, sources = ? WHERE id = ?',
+  ).run(
     body.slice(0, MAX_BODY),
     status,
+    sources ? JSON.stringify(sources) : null,
     messageId,
   )
 }

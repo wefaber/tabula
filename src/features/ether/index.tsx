@@ -37,6 +37,13 @@ import {
   type EtherEvent,
   type RunState,
 } from '../../../shared/ether'
+import {
+  refToken,
+  type EtherRef,
+  type MessageSources,
+} from '../../../shared/etherRefs'
+import { RefChips, RefPicker, useRefComposer } from './refPicker'
+import { SourcesRow } from './sources'
 
 interface Thread {
   slug: string
@@ -53,6 +60,8 @@ interface Message {
   createdAt: string
   /** Active share link of this answer, when the owner shared it. */
   shareToken: string | null
+  /** What Ether looked at; null for questions and older answers. */
+  sources: MessageSources | null
 }
 
 interface Shared {
@@ -84,6 +93,7 @@ interface Live {
 interface Failure {
   thread: string
   question: string
+  refs: EtherRef[]
   message: string
 }
 
@@ -131,6 +141,30 @@ const MESSAGES = /* GraphQL */ `
       runId
       createdAt
       shareToken
+      sources {
+        at
+        activeTag
+        containers {
+          service
+          state
+          health
+          image
+        }
+        errors {
+          at
+          what
+        }
+        tools {
+          tool
+          preview
+        }
+        refs {
+          kind
+          id
+          title
+          facts
+        }
+      }
     }
   }
 `
@@ -177,8 +211,8 @@ const RUN = /* GraphQL */ `
 `
 
 const ASK = /* GraphQL */ `
-  mutation AskEther($thread: String!, $question: String!) {
-    askEther(thread: $thread, question: $question) {
+  mutation AskEther($thread: String!, $question: String!, $refs: [String!]) {
+    askEther(thread: $thread, question: $question, refs: $refs) {
       runId
       streamKey
     }
@@ -246,6 +280,7 @@ export default function Section() {
   const [attach, setAttach] = useState<Attach | null>(null)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [draft, setDraft] = useState('')
+  const composer = useRefComposer(draft, setDraft)
   // A selected piece of an answer the next message replies to; sent as `Q: <piece>\nA: <reply>`.
   const [quote, setQuote] = useState('')
   const [sharedToken, setSharedToken] = useState(readShareToken)
@@ -339,23 +374,25 @@ export default function Section() {
   }, [runId, runThread, streamKey])
 
   const ask = useMutation({
-    mutationFn: (question: string) =>
+    mutationFn: (input: { question: string; refs: EtherRef[] }) =>
       gql<{ askEther: { runId: string; streamKey: string } }>(ASK, {
         thread,
-        question,
+        question: input.question,
+        refs: input.refs.map(refToken),
       }).then((d) => ({ ...d.askEther, thread })),
-    onMutate: (question) => {
+    onMutate: ({ question }) => {
       setFailure(null)
       setLive({ thread, question, state: START_RUN })
     },
     onSuccess: (run) => {
       setDraft('')
+      composer.clear()
       setQuote('')
       setAttach(run)
     },
-    onError: (e, question) => {
+    onError: (e, { question, refs }) => {
       setLive(null)
-      setFailure({ thread, question, message: e.message })
+      setFailure({ thread, question, refs, message: e.message })
     },
   })
 
@@ -364,13 +401,17 @@ export default function Section() {
       args.op === 'stop'
         ? gql(STOP, { runId: args.runId })
         : gql(APPROVE, { runId: args.runId, deny: args.op === 'deny' }),
-    onError: (e) => setFailure({ thread, question: '', message: e.message }),
+    onError: (e) =>
+      setFailure({ thread, question: '', refs: [], message: e.message }),
   })
 
   const send = (question: string) => {
     const q = question.trim()
     if (!q || ask.isPending || (live && !isTerminal(live.state.phase))) return
-    ask.mutate(quote ? `Q: ${quote}\nA: ${q}` : q)
+    ask.mutate({
+      question: quote ? `Q: ${quote}\nA: ${q}` : q,
+      refs: composer.refs,
+    })
   }
 
   // A shared link (`#ether?s=<token>`) opens the read-only answer instead of the conversation.
@@ -483,6 +524,9 @@ export default function Section() {
                   />
                 </div>
               ) : null}
+              {m.role === 'ether' && m.status === 'done' && m.sources ? (
+                <SourcesRow sources={m.sources} />
+              ) : null}
             </Bubble>
           ))}
 
@@ -573,7 +617,10 @@ export default function Section() {
                 <Button
                   onClick={() => {
                     setFailure(null)
-                    ask.mutate(failure.question)
+                    ask.mutate({
+                      question: failure.question,
+                      refs: failure.refs,
+                    })
                   }}
                 >
                   <RotateCw className="size-4" aria-hidden />
@@ -605,10 +652,12 @@ export default function Section() {
               />
             </div>
           ) : null}
+          <RefChips refs={composer.refs} onRemove={composer.remove} />
           <label htmlFor="ether-question" className="sr-only">
             Pregunta para Ether
           </label>
           <div className="relative">
+            <RefPicker composer={composer} />
             <Textarea
               id="ether-question"
               rows={3}
@@ -617,11 +666,12 @@ export default function Section() {
               className="pb-12"
               placeholder={
                 quote
-                  ? 'Tu respuesta a la cita. Enter envía, Shift+Enter agrega una línea.'
-                  : 'Escribí tu pregunta. Enter envía, Shift+Enter agrega una línea.'
+                  ? 'Tu respuesta a la cita. Enter envía, Shift+Enter agrega una línea. @ referencia un container, una API o una llamada.'
+                  : 'Escribí tu pregunta. Enter envía, Shift+Enter agrega una línea. @ referencia un container, una API o una llamada.'
               }
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
+                if (composer.onKeyDown(e)) return
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   send(draft)

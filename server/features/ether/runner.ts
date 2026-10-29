@@ -12,12 +12,14 @@ import {
   type EtherEvent,
   type RunState,
 } from '../../../shared/ether'
+import type { MessageSources } from '../../../shared/etherRefs'
 import {
   EtherError,
   etherClient,
   fixtureEther,
   type EtherClient,
 } from './client'
+import { parseRefs, resolveRefs } from './refs'
 import { buildInput, collectSnapshot } from './snapshot'
 import {
   addMessage,
@@ -44,6 +46,8 @@ export interface ActiveRun {
   thread: string
   messageId: number
   state: RunState
+  /** Photo taken when the question was sent; the tool steps are added when the run ends. */
+  sources: MessageSources
   /** Counts emitted events so a late subscriber can drop what its snapshot already covers. */
   seq: number
   abort: AbortController
@@ -103,6 +107,7 @@ export class EtherRuns {
     user: User,
     thread: string,
     rawQuestion: string,
+    rawRefs?: readonly string[] | null,
   ): Promise<{ runId: string; streamKey: string }> {
     const question = rawQuestion.trim()
     if (!THREAD_SLUG.test(thread))
@@ -113,6 +118,7 @@ export class EtherRuns {
         'BAD_INPUT',
         `La pregunta tiene que tener hasta ${MAX_QUESTION} caracteres.`,
       )
+    const refs = parseRefs(rawRefs)
     for (const run of this.active.values())
       if (run.userId === user.id && !isTerminal(run.state.phase))
         fail(
@@ -130,6 +136,9 @@ export class EtherRuns {
 
     const { db } = this.deps
     const at = this.now()
+    // Refs are checked before anything is written: an unknown id refuses the question without a message in the thread.
+    const snapshot = await collectSnapshot(this.deps, at)
+    const referenced = resolveRefs(this.deps, refs, snapshot)
     const threadId = touchThread(db, user.id, thread, titleOf(question), at)
     addMessage(db, threadId, 'user', question, at)
     const messageId = addMessage(db, threadId, 'ether', '', at, {
@@ -139,8 +148,10 @@ export class EtherRuns {
 
     let runId: string
     try {
-      const snapshot = await collectSnapshot(this.deps, at)
-      runId = await this.client.start(buildInput(question, snapshot), session)
+      runId = await this.client.start(
+        buildInput(question, snapshot, referenced),
+        session,
+      )
     } catch (e) {
       const reason =
         e instanceof EtherError ? e.message : 'No se pudo consultar a Ether.'
@@ -171,6 +182,19 @@ export class EtherRuns {
       thread,
       messageId,
       state: START_RUN,
+      sources: {
+        at: snapshot.at,
+        activeTag: snapshot.activeTag,
+        containers: snapshot.containers.map((c) => ({
+          service: c.service,
+          state: c.state,
+          health: c.health,
+          image: c.image,
+        })),
+        errors: snapshot.errors,
+        tools: [],
+        refs: referenced,
+      },
       seq: 0,
       abort: new AbortController(),
     }
@@ -333,6 +357,7 @@ export class EtherRuns {
         offline: false,
       })
     const final = run.state
+    const sources = { ...run.sources, tools: final.tools }
     try {
       if (final.phase === 'completed')
         finishMessage(
@@ -340,6 +365,7 @@ export class EtherRuns {
           run.messageId,
           final.text || 'Ether no devolvió texto.',
           'done',
+          sources,
         )
       else if (final.phase === 'cancelled')
         finishMessage(
@@ -347,6 +373,7 @@ export class EtherRuns {
           run.messageId,
           final.text || 'Detuviste la consulta.',
           'cancelled',
+          sources,
         )
       else
         finishMessage(
@@ -354,6 +381,7 @@ export class EtherRuns {
           run.messageId,
           final.error ?? 'La consulta falló.',
           'failed',
+          sources,
         )
     } catch {}
     setTimeout(() => this.active.delete(run.runId), this.keepMs).unref()
