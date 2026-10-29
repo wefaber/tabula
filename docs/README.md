@@ -1,6 +1,6 @@
 # Docs
 
-URL: https://gravidadev.wefaber.net (vhost nginx en la IP del tailnet).
+URL: https://tabula.wefaber.net (vhost nginx en la IP del tailnet).
 
 | Sección                    | Versión | Estado |
 | -------------------------- | ------- | ------ |

@@ -7,7 +7,7 @@
 #
 # Slots: blue :4171, green :4172 (systemd tabula@<slot>). nginx listens on the tailnet address and
 # proxies to the include /home/hermes/deploy/nginx/tabula-upstream.conf, which this script rewrites.
-# Public name: https://gravidadev.wefaber.net (nginx vhost on the tailnet address, see deploy/nginx-tabula.conf).
+# Public name: https://tabula.wefaber.net (nginx vhost on the tailnet address, see deploy/nginx-tabula.conf).
 # Env: ~/deploy/env/tabula.env.
 set -euo pipefail
 
@@ -15,7 +15,7 @@ APP=tabula
 BASE="${TABULA_BASE:-/home/hermes/apps/$APP}"
 STATE="${TABULA_STATE:-/home/hermes/deploy/state/$APP.slot}"
 UPSTREAM="${TABULA_UPSTREAM:-/home/hermes/deploy/nginx/$APP-upstream.conf}"
-DOMAIN="${TABULA_DOMAIN:-gravidadev.wefaber.net}"
+DOMAIN="${TABULA_DOMAIN:-tabula.wefaber.net}"
 TAILNET_IP="${TABULA_TAILNET_IP:-100.113.187.112}"
 PUBLIC="https://$DOMAIN"
 CMD="${1:-deploy}"

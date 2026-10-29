@@ -1,6 +1,6 @@
 name: Deploy
 
-# Push a main -> check, build y deploy blue/green en el VPS (https://gravidadev.wefaber.net).
+# Push a main -> check, build y deploy blue/green en el VPS (https://tabula.wefaber.net).
 # Rollback desde la pipeline: Run workflow -> action: rollback (vuelve al slot anterior, que sigue arriba).
 # Runner: el self-hosted de la org wefaber. Sin trigger pull_request: un PR de un fork nunca corre aca.
 on:
@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  DOMAIN: gravidadev.wefaber.net
+  DOMAIN: tabula.wefaber.net
   TAILNET_IP: 100.113.187.112
 
 jobs:
@@ -32,8 +32,8 @@ jobs:
     runs-on: [self-hosted, wefaber]
     timeout-minutes: 15
     environment:
-      name: gravidadev
-      url: https://gravidadev.wefaber.net
+      name: tabula
+      url: https://tabula.wefaber.net
     steps:
       - uses: actions/checkout@v4
 

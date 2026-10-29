@@ -2,7 +2,7 @@
 
 Estado: aceptado (2026-10-28). Reemplaza la versión con Tailscale Serve.
 
-**Contexto.** Faku, Pablo y Jean están en el tailnet. El panel vive en `https://gravidadev.wefaber.net`. Tailscale Serve
+**Contexto.** Faku, Pablo y Jean están en el tailnet. El panel vive en `https://tabula.wefaber.net` (`gravidadev.wefaber.net` sigue como alias). Tailscale Serve
 (que inyecta `Tailscale-User-Login`) no sirve con un dominio propio, y el panel puede apagar el stack y editar su DB.
 
 **Decisión.** nginx escucha solo en la IP del tailnet del VPS (`100.113.187.112:443`), permite `100.64.0.0/10` y niega el

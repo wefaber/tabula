@@ -8,7 +8,7 @@ y la SPA. Habla con Podman por el socket rootless, con GitHub por REST y con Her
 Nunca toca los datos de Gravida salvo por el editor de DB, vía `exec` en el container `db`.
 
 ```
-https://gravidadev.wefaber.net -> nginx (vhost en la IP del tailnet, :443) -> tabula@blue|green (:4171/:4172)
+https://tabula.wefaber.net -> nginx (vhost en la IP del tailnet, :443) -> tabula@blue|green (:4171/:4172)
                                                    |- tailscaled.sock (whois de la IP del cliente)
                                                    |- podman.sock  -> containers nexus-test (list/stats/logs/exec/power)
                                                    |- api.github.com (read-only)
@@ -51,7 +51,7 @@ Para que varias features se escriban en paralelo sin pisarse:
 
 `TABULA_USERS` (`login:rol:Nombre,...`), `PORT`, `DATA_DIR`, `PODMAN_SOCKET`, `NEXUS_PROJECT` (`nexus-test`), `NEXUS_FRONT_URL`
 (`http://127.0.0.1:18080`), `NEXUS_STATE_FILE`, `DB_NAME`/`DB_USER`/`DB_PASSWORD`, `GITHUB_REPO`/`GITHUB_TOKEN`,
-`ETHER_URL`/`ETHER_KEY`/`ETHER_PROFILE`, `TABULA_DOMAIN` (`gravidadev.wefaber.net`), `TAILSCALE_SOCKET`, `TABULA_TRUST_SERVE_HEADER` (solo si hubiera Tailscale Serve adelante). En el VPS vienen de `~/deploy/env/tabula.env`. Local: `TABULA_FIXTURES=1`.
+`ETHER_URL`/`ETHER_KEY`/`ETHER_PROFILE`, `TABULA_DOMAIN` (`tabula.wefaber.net`), `TAILSCALE_SOCKET`, `TABULA_TRUST_SERVE_HEADER` (solo si hubiera Tailscale Serve adelante). En el VPS vienen de `~/deploy/env/tabula.env`. Local: `TABULA_FIXTURES=1`.
 
 ## Flujo de ramas
 
@@ -67,6 +67,6 @@ Para que varias features se escriban en paralelo sin pisarse:
 ## Delivery
 
 Push a `main` dispara `.github/workflows/deploy.yml` (runner wefaber): install, `check`, build y
-`deploy/tabula.sh <sha>` (rsync al slot libre, `/ready`, switch del upstream de nginx, reload, y `/ready` sobre `https://gravidadev.wefaber.net`). El slot anterior
+`deploy/tabula.sh <sha>` (rsync al slot libre, `/ready`, switch del upstream de nginx, reload, y `/ready` sobre `https://tabula.wefaber.net`). El slot anterior
 queda arriba; rollback = `deploy/tabula.sh rollback`. Las migraciones son expand/contract porque blue y green
 comparten la DB.
