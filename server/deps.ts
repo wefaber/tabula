@@ -3,6 +3,7 @@ import type { Database } from 'bun:sqlite'
 import type { GithubClient } from './adapters/github'
 import type { PodmanClient } from './adapters/podman'
 import type { AuthMethod, User } from './auth'
+import type { Whois } from './auth/whois'
 import type { Bus } from './bus'
 import type { Config } from './config'
 
@@ -12,6 +13,7 @@ export interface Deps {
   bus: Bus
   podman: PodmanClient
   github: GithubClient
+  whois: Whois
 }
 
 /** GraphQL context: /graphql only runs for an authenticated user, so `user` is never null here. */

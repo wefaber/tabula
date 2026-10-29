@@ -5,22 +5,27 @@
 #   deploy/gravida-devpanel.sh rollback   switch back to the previous slot (still running)
 #   deploy/gravida-devpanel.sh status     active slot and health of both
 #
-# Slots: blue :4171, green :4172 (systemd gravida-devpanel@<slot>). nginx listens on 127.0.0.1:4170 and
+# Slots: blue :4171, green :4172 (systemd gravida-devpanel@<slot>). nginx listens on the tailnet address and
 # proxies to the include /home/hermes/deploy/nginx/gravida-devpanel-upstream.conf, which this script rewrites.
-# Tailscale Serve (https :8445) points at nginx. Env: ~/deploy/env/gravida-devpanel.env.
+# Public name: https://gravidadev.wefaber.net (nginx vhost on the tailnet address, see deploy/nginx-gravida-devpanel.conf).
+# Env: ~/deploy/env/gravida-devpanel.env.
 set -euo pipefail
 
 APP=gravida-devpanel
 BASE="${DEVPANEL_BASE:-/home/hermes/apps/$APP}"
 STATE="${DEVPANEL_STATE:-/home/hermes/deploy/state/$APP.slot}"
 UPSTREAM="${DEVPANEL_UPSTREAM:-/home/hermes/deploy/nginx/$APP-upstream.conf}"
-PUBLIC="${DEVPANEL_PUBLIC_URL:-http://127.0.0.1:4170}"
+DOMAIN="${DEVPANEL_DOMAIN:-gravidadev.wefaber.net}"
+TAILNET_IP="${DEVPANEL_TAILNET_IP:-100.113.187.112}"
+PUBLIC="https://$DOMAIN"
 CMD="${1:-deploy}"
 
 port() { [ "$1" = blue ] && echo 4171 || echo 4172; }
 other() { [ "$1" = blue ] && echo green || echo blue; }
 active() { cat "$STATE" 2>/dev/null || echo green; }   # first deploy lands on blue
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+# The real domain, as a tailnet client reaches it: SNI + Host intact, address pinned to the VPS tailnet IP.
+public_ready() { curl -fsS --max-time 5 --resolve "$DOMAIN:443:$TAILNET_IP" "$PUBLIC/ready" >/dev/null; }
 ready() { curl -fsS --max-time 5 "http://127.0.0.1:$(port "$1")/ready" >/dev/null; }
 
 wait_ready() {
@@ -46,7 +51,7 @@ case "$CMD" in
     prev="$(other "$(active)")"
     ready "$prev" || die "el slot $prev no responde: no hay a donde volver"
     switch_to "$prev"
-    curl -fsS --max-time 5 "$PUBLIC/ready" >/dev/null || die "rollback hecho pero $PUBLIC/ready no responde"
+    public_ready || die "rollback hecho pero $PUBLIC/ready no responde"
     echo "rollback ok -> $prev"
     ;;
   deploy | *)
@@ -65,7 +70,7 @@ case "$CMD" in
     sudo /usr/bin/systemctl restart "$APP@$idle"
     wait_ready "$idle" || { sudo /usr/bin/systemctl stop "$APP@$idle"; die "el slot $idle no quedó ready; sigue sirviendo $cur"; }
     switch_to "$idle"
-    curl -fsS --max-time 5 "$PUBLIC/ready" >/dev/null || { switch_to "$cur"; die "$PUBLIC/ready no responde; volví a $cur"; }
+    public_ready || { switch_to "$cur"; die "$PUBLIC/ready no responde; volví a $cur"; }
     echo "==> deploy ok: $SHA activo en $idle (el slot $cur queda arriba para rollback)"
     ;;
 esac

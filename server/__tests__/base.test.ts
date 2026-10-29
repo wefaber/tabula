@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { demux } from '../adapters/podmanStream'
 import { createApp } from '../app'
-import { authenticate, createToken, revokeToken, userByLogin } from '../auth'
+import {
+  authenticate,
+  createToken,
+  identify,
+  revokeToken,
+  userByLogin,
+} from '../auth'
+import { fixtureWhois, isTailnetIp, tailscaleWhois } from '../auth/whois'
 import { parseUsers } from '../config'
 import { MAX_QUERY_LENGTH, clampPage } from '../graphql/limits'
 import { testDeps } from '../test-utils'
@@ -83,16 +90,18 @@ describe('config', () => {
 })
 
 describe('auth', () => {
+  const trust = { trustHeader: true }
   const req = (headers: Record<string, string>) =>
     new Request('http://localhost/graphql', { headers })
 
   test('tailnet header only works for allowlisted logins', () => {
     const { db } = testDeps()
     expect(
-      authenticate(db, req({ 'tailscale-user-login': 'faku@x' }))?.method,
+      authenticate(db, req({ 'tailscale-user-login': 'faku@x' }), trust)
+        ?.method,
     ).toBe('tailnet')
     expect(
-      authenticate(db, req({ 'tailscale-user-login': 'intruso@x' })),
+      authenticate(db, req({ 'tailscale-user-login': 'intruso@x' }), trust),
     ).toBeNull()
   })
 
@@ -130,7 +139,7 @@ describe('auth', () => {
     const { syncUsers } = await import('../auth')
     syncUsers(deps.db, [{ login: 'faku@x', name: 'Faku', role: 'admin' }])
     expect(
-      authenticate(deps.db, req({ 'tailscale-user-login': 'pablo@x' })),
+      authenticate(deps.db, req({ 'tailscale-user-login': 'pablo@x' }), trust),
     ).toBeNull()
   })
 })
@@ -279,4 +288,81 @@ test('devLogin stands in for the tailnet header, and is off in production', asyn
   })
   expect(dev.devLogin).toBe('dev@local')
   expect(prod.devLogin).toBe('')
+})
+
+describe('tailnet identity (whois)', () => {
+  const withIp = (ip: string, headers: Record<string, string> = {}) =>
+    new Request('http://localhost/graphql', {
+      headers: { 'x-real-ip': ip, ...headers },
+    })
+  const opts = { trustHeader: false, devLogin: '' }
+
+  test('a device of an allowlisted login gets in, a stranger does not', async () => {
+    const { db } = testDeps()
+    const whois = fixtureWhois({
+      '100.64.0.7': 'pablo@x',
+      '100.64.0.8': 'intruso@x',
+    })
+    expect(
+      (await identify(db, withIp('100.64.0.7'), opts, whois))?.user.login,
+    ).toBe('pablo@x')
+    expect(await identify(db, withIp('100.64.0.8'), opts, whois)).toBeNull()
+    expect(await identify(db, withIp('100.64.0.9'), opts, whois)).toBeNull()
+  })
+
+  test('the forged Tailscale-User-Login header is ignored behind nginx', async () => {
+    const { db } = testDeps()
+    const req = withIp('100.64.0.9', { 'tailscale-user-login': 'faku@x' })
+    expect(await identify(db, req, opts, fixtureWhois())).toBeNull()
+  })
+
+  test('a token still wins and needs no tailnet', async () => {
+    const { db } = testDeps()
+    const { token } = createToken(db, userByLogin(db, 'faku@x')!.id, 't')
+    const req = withIp('203.0.113.5', { authorization: `Bearer ${token}` })
+    expect((await identify(db, req, opts, fixtureWhois()))?.method).toBe(
+      'token',
+    )
+  })
+
+  test('only tailnet addresses are ever looked up', () => {
+    expect(isTailnetIp('100.64.0.1')).toBe(true)
+    expect(isTailnetIp('100.127.255.254')).toBe(true)
+    expect(isTailnetIp('fd7a:115c:a1e0::1')).toBe(true)
+    for (const ip of [
+      '100.63.0.1',
+      '100.128.0.1',
+      '127.0.0.1',
+      '203.0.113.5',
+      'x',
+      '',
+    ]) {
+      expect(isTailnetIp(ip)).toBe(false)
+    }
+  })
+
+  test('tailscaleWhois skips non-tailnet IPs without touching the socket', async () => {
+    const whois = tailscaleWhois('/nonexistent.sock')
+    expect(await whois('203.0.113.5')).toBeNull()
+    expect(await whois('100.64.0.1')).toBeNull() // socket missing -> no identity, no throw
+  })
+
+  test('the app answers a tailnet device through whois', async () => {
+    const deps = testDeps('faku@x:admin:Faku', { '100.64.0.7': 'faku@x' })
+    const app = createApp(deps, { distDir: '/nonexistent' })
+    const res = await app.handle(
+      new Request('http://localhost/graphql', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-real-ip': '100.64.0.7',
+        },
+        body: JSON.stringify({ query: '{ me { login } authMethod }' }),
+      }),
+    )
+    expect((await res.json()).data).toEqual({
+      me: { login: 'faku@x' },
+      authMethod: 'tailnet',
+    })
+  })
 })

@@ -175,11 +175,21 @@ export function sessionCookie(
 
 export type AuthMethod = 'session' | 'token' | 'tailnet'
 
+export interface AuthOptions {
+  /** Believe `Tailscale-User-Login`. Only valid behind Tailscale Serve, which sets it; behind nginx a client could forge it. */
+  trustHeader?: boolean
+  /** Local dev: stands in for the identity Serve would inject. */
+  devLogin?: string
+}
+
+export type Identity = { user: User; method: AuthMethod }
+
+/** Synchronous identities: session cookie, bearer token, trusted header, dev login. */
 export function authenticate(
   db: Database,
   request: Request,
-  devLogin = '',
-): { user: User; method: AuthMethod } | null {
+  { trustHeader = false, devLogin = '' }: AuthOptions = {},
+): Identity | null {
   const cookie = readCookie(request.headers.get('cookie'), SESSION_COOKIE)
   if (cookie) {
     const user = userBySession(db, cookie)
@@ -195,10 +205,31 @@ export function authenticate(
       return { user, method: 'token' }
     }
   }
-  const login = request.headers.get('tailscale-user-login') || devLogin
+  const login =
+    (trustHeader ? request.headers.get('tailscale-user-login') : null) ||
+    devLogin
   if (login) {
     const user = userByLogin(db, login)
     if (user) return { user, method: 'tailnet' }
   }
   return null
+}
+
+/**
+ * Everything `authenticate` knows, then the tailnet: nginx sets `X-Real-IP` to the device's tailnet address
+ * (overwriting any client value; the app only listens on loopback) and tailscaled says whose device it is.
+ */
+export async function identify(
+  db: Database,
+  request: Request,
+  options: AuthOptions,
+  whois: (ip: string) => Promise<string | null>,
+): Promise<Identity | null> {
+  const found = authenticate(db, request, options)
+  if (found) return found
+  const ip = request.headers.get('x-real-ip')?.trim()
+  if (!ip) return null
+  const login = await whois(ip)
+  const user = login ? userByLogin(db, login) : null
+  return user ? { user, method: 'tailnet' } : null
 }

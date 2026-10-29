@@ -4,8 +4,8 @@ import { createYoga } from 'graphql-yoga'
 import { existsSync } from 'node:fs'
 import { join, normalize } from 'node:path'
 import {
-  authenticate,
   closeSession,
+  identify,
   openSession,
   readCookie,
   SESSION_COOKIE,
@@ -61,6 +61,10 @@ export function createApp(
     context: ({ ctx }) => ctx,
   })
 
+  const authOptions = {
+    trustHeader: deps.config.trustServeHeader,
+    devLogin: deps.config.devLogin,
+  }
   const tokenFailures = failureWindow(20, 10 * 60_000)
   const secure = deps.config.production
 
@@ -105,8 +109,8 @@ export function createApp(
         'set-cookie': sessionCookie('', null, secure),
       })
     })
-    .all('/graphql', ({ request }) => {
-      const auth = authenticate(deps.db, request, deps.config.devLogin)
+    .all('/graphql', async ({ request }) => {
+      const auth = await identify(deps.db, request, authOptions, deps.whois)
       if (!auth)
         return httpError(
           401,
@@ -117,8 +121,8 @@ export function createApp(
         ctx: { ...deps, user: auth.user, method: auth.method },
       })
     })
-    .get('/sse/:channel', ({ request, params }) => {
-      if (!authenticate(deps.db, request, deps.config.devLogin))
+    .get('/sse/:channel', async ({ request, params }) => {
+      if (!(await identify(deps.db, request, authOptions, deps.whois)))
         return httpError(401, 'UNAUTHENTICATED', 'Sin sesión.')
       if (!CHANNEL.test(params.channel))
         return httpError(400, 'BAD_CHANNEL', 'Canal inválido.')
