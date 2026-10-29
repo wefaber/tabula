@@ -11,7 +11,7 @@ Todas las secciones requieren sesión (tailnet o token) y todo cambio de estado 
 - **Atajos**: `1` a `7` cambian de sección, `[` y `]` van a la anterior o siguiente, `?` lista los atajos.
 - **Fallas a la vista**: el header lista los módulos con problemas y qué se detectó (Podman, migraciones, falta de `DB_PASSWORD`, `GITHUB_TOKEN` o `ETHER_KEY`); una sección que rompe en el navegador muestra su error sin tumbar el resto.
 - **Vivo**: eventos por SSE (`/sse/:channel`) para estado, llamadas y respuestas de Ether.
-- **Recorrido de primer uso (v0.6.3)**: 4 pasos (secciones, pedir un token, atajos, Ask Ether) que se abren una sola vez por usuario al entrar. Esc o la X lo cierran y lo marcan como visto (`user_onboarding`). Se reabre con **Ver recorrido** desde el diálogo de atajos (`?`).
+- **Recorrido de primer uso (v0.6.7)**: 5 pasos con barra de progreso (bienvenida con idioma y tema, las secciones, Ask Ether, atajos, acceso y ajustes) en español e inglés. Se abre una sola vez por usuario al entrar; Omitir, Esc o la X lo marcan como visto (`user_onboarding`). Se reabre con **Ver recorrido** desde el diálogo de atajos (`?`).
 - **Endpoints**: `/health`, `/ready` (devuelve la versión que corre), `/graphql` con límites de profundidad (8) y largo (4000).
 - **Deploy**: blue/green en el VPS, verificado contra el dominio real y con rollback. Ver [ARCHITECTURE.md](../ARCHITECTURE.md).
 
