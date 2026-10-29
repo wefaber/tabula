@@ -21,7 +21,7 @@ afterAll(() => {
 
 function setup() {
   const deps = testDeps()
-  const dir = mkdtempSync(join(tmpdir(), 'devpanel-db-'))
+  const dir = mkdtempSync(join(tmpdir(), 'tabula-db-'))
   dirs.push(dir)
   deps.config.dataDir = dir
   return { app: createApp(deps, { distDir: '/nonexistent' }), dir }
