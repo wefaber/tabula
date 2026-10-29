@@ -240,10 +240,8 @@ export default function Section() {
             <>
               Falta GITHUB_TOKEN en el servidor, así que no se puede leer el
               repo. Cargalo en{' '}
-              <span className="font-mono">
-                ~/deploy/env/gravida-devpanel.env
-              </span>{' '}
-              y reiniciá el servicio.
+              <span className="font-mono">~/deploy/env/tabula.env</span> y
+              reiniciá el servicio.
             </>
           ) : (
             <>

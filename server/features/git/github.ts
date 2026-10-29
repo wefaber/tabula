@@ -57,7 +57,7 @@ export function assertConfigured(deps: Deps): void {
   if (!deps.config.fixtures && !deps.config.github.token)
     fail(
       'GITHUB_NOT_CONFIGURED',
-      'Falta GITHUB_TOKEN: sin él el panel no puede leer el repo. Cargalo en ~/deploy/env/gravida-devpanel.env y reiniciá el servicio.',
+      'Falta GITHUB_TOKEN: sin él el panel no puede leer el repo. Cargalo en ~/deploy/env/tabula.env y reiniciá el servicio.',
     )
 }
 

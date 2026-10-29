@@ -1,4 +1,4 @@
-// GitHub-shaped responses for dev (DEVPANEL_FIXTURES=1) and tests: five branches with a fork, two merges, a hotfix and
+// GitHub-shaped responses for dev (TABULA_FIXTURES=1) and tests: five branches with a fork, two merges, a hotfix and
 // an open feature branch, pushes by two people, CI and deploy runs (one failed, one running). Registered by path on the
 // shared fixture map from this folder.
 import { createHash } from 'node:crypto'
