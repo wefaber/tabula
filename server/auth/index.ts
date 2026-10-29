@@ -1,7 +1,7 @@
 // Who is asking. Three ways in, checked in this order:
 //   1. session cookie, opened by exchanging a token on /auth/token;
 //   2. `Authorization: Bearer <token>` (agents, scripts);
-//   3. `Tailscale-User-Login`, injected by Tailscale Serve for tailnet users, checked against DEVPANEL_USERS.
+//   3. `Tailscale-User-Login`, injected by Tailscale Serve for tailnet users, checked against TABULA_USERS.
 // The app listens on loopback only and Tailscale Serve is the only thing in front of it, so (3) can be trusted.
 import type { Database } from 'bun:sqlite'
 import type { AllowedUser, Role } from '../config'
@@ -13,9 +13,9 @@ export interface User {
   role: Role
 }
 
-export const SESSION_COOKIE = 'gdp_session'
+export const SESSION_COOKIE = 'tabula_session'
 const SESSION_DAYS = 30
-const TOKEN_PREFIX = 'gdp_'
+const TOKEN_PREFIX = 'tbl_'
 
 export function sha256(value: string): string {
   return new Bun.CryptoHasher('sha256').update(value).digest('hex')
@@ -27,7 +27,7 @@ function randomSecret(bytes = 32): string {
   )
 }
 
-/** Upserts the allowlist. Users dropped from DEVPANEL_USERS are deactivated, never deleted (audit keeps their login). */
+/** Upserts the allowlist. Users dropped from TABULA_USERS are deactivated, never deleted (audit keeps their login). */
 export function syncUsers(db: Database, users: AllowedUser[]): void {
   db.transaction(() => {
     db.run('UPDATE users SET active = 0')
