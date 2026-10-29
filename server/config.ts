@@ -17,6 +17,12 @@ export interface Config {
   fixtures: boolean
   /** Local dev only: acts as the `Tailscale-User-Login` header Serve would inject. Ignored in production. */
   devLogin: string
+  /** Public name of the panel (nginx vhost on the tailnet address). */
+  domain: string
+  /** tailscaled local API socket, used to resolve a tailnet IP to its login. */
+  tailscaleSocket: string
+  /** Believe `Tailscale-User-Login`: only when Tailscale Serve (not nginx) is in front. */
+  trustServeHeader: boolean
   host: string
   port: number
   dataDir: string
@@ -68,6 +74,10 @@ export function loadConfig(
     production,
     fixtures,
     devLogin: production ? '' : (env.DEVPANEL_DEV_LOGIN ?? '').toLowerCase(),
+    domain: env.DEVPANEL_DOMAIN ?? 'gravidadev.wefaber.net',
+    tailscaleSocket:
+      env.TAILSCALE_SOCKET ?? '/var/run/tailscale/tailscaled.sock',
+    trustServeHeader: env.DEVPANEL_TRUST_SERVE_HEADER === '1',
     host: env.HOST ?? '127.0.0.1',
     port: Number(env.PORT ?? 4171),
     dataDir:
