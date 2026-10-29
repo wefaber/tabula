@@ -439,6 +439,9 @@ export default function Section() {
       ? 'offline'
       : orbPhase(sameThread && live ? live.state : IDLE_RUN)
   const shown = (stored ?? []).filter((m) => m.status !== 'pending')
+  // Once the reload after `ask` brings the question in, the live copy would repeat it.
+  const last = shown.at(-1)
+  const questionStored = last?.role === 'user' && last.body === live?.question
 
   return (
     <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
@@ -542,7 +545,7 @@ export default function Section() {
             </Bubble>
           ))}
 
-          {sameThread && live?.question ? (
+          {sameThread && live?.question && !questionStored ? (
             <Bubble who="Vos">
               <ReplyBody body={live.question} />
             </Bubble>

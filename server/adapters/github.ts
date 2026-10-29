@@ -18,11 +18,16 @@ export class GithubError extends Error {
   }
 }
 
-export function githubClient(repo: string, token: string): GithubClient {
+/** `tokenFor` gets the owner of the repo in the path (`/repos/<owner>/...`): each GitHub organization has its own token. */
+export function githubClient(
+  repo: string,
+  tokenFor: (owner: string) => string,
+): GithubClient {
   const cache = new Map<string, { etag: string; body: unknown }>()
 
   async function get<T>(path: string): Promise<T | null> {
     const cached = cache.get(path)
+    const token = tokenFor(/^\/repos\/([^/]+)\//.exec(path)?.[1] ?? '')
     const res = await fetch(`https://api.github.com${path}`, {
       headers: {
         accept: 'application/vnd.github+json',

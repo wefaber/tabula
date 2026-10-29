@@ -13,7 +13,7 @@ export interface AllowedUser {
 
 export interface Config {
   production: boolean
-  /** Fixture adapters instead of Podman, MariaDB, GitHub and Hermes: local dev and tests. */
+  /** Fixture adapters instead of Podman, MariaDB, GitHub and DeepSeek: local dev and tests. */
   fixtures: boolean
   /** Local dev only: acts as the `Tailscale-User-Login` header Serve would inject. Ignored in production. */
   devLogin: string
@@ -38,8 +38,27 @@ export interface Config {
     dbUser: string
     dbPassword: string
   }
-  github: { repo: string; token: string }
-  ether: { url: string; key: string; profile: string }
+  github: {
+    repo: string
+    /** Token for `repo` (the Gravida repo), kept for the git feature. */
+    token: string
+    /** One read-only token per GitHub organization (lowercase owner): nexus-iti and wefaber are different orgs. */
+    tokens: Record<string, string>
+  }
+  /** Ask Ether talks straight to DeepSeek (OpenAI-compatible chat). `repos` are the GitHub repos it reads for context. */
+  ether: { url: string; key: string; model: string; repos: string[] }
+}
+
+/** Env var of each GitHub organization's token. GITHUB_TOKEN alone still works for nexus-iti. */
+export const GITHUB_TOKEN_VARS: Record<string, string> = {
+  'nexus-iti': 'GITHUB_TOKEN_NEXUS',
+  wefaber: 'GITHUB_TOKEN_WEFABER',
+}
+
+/** The token of the organization that owns `repo` (`owner/name`), or '' when none is configured. */
+export function githubTokenFor(config: Config, repo: string): string {
+  const owner = repo.split('/')[0]?.toLowerCase() ?? ''
+  return config.github.tokens[owner] ?? ''
 }
 
 export function parseUsers(raw: string): AllowedUser[] {
@@ -69,6 +88,12 @@ export function loadConfig(
   const production = env.NODE_ENV === 'production'
   const fixtures = env.TABULA_FIXTURES === '1'
   const home = homedir()
+  // GITHUB_TOKEN is the old single token: it stays as the fallback for nexus-iti so existing installs keep working.
+  const githubRepo = env.GITHUB_REPO ?? 'nexus-iti/gravida'
+  const githubTokens: Record<string, string> = {
+    'nexus-iti': env.GITHUB_TOKEN_NEXUS ?? env.GITHUB_TOKEN ?? '',
+    wefaber: env.GITHUB_TOKEN_WEFABER ?? '',
+  }
   return {
     production,
     fixtures,
@@ -97,13 +122,18 @@ export function loadConfig(
       dbPassword: env.DB_PASSWORD ?? '',
     },
     github: {
-      repo: env.GITHUB_REPO ?? 'nexus-iti/gravida',
-      token: env.GITHUB_TOKEN ?? '',
+      repo: githubRepo,
+      token: githubTokens[githubRepo.split('/')[0]?.toLowerCase() ?? ''] ?? '',
+      tokens: githubTokens,
     },
     ether: {
-      url: env.ETHER_URL ?? 'http://127.0.0.1:8642',
-      key: env.ETHER_KEY ?? '',
-      profile: env.ETHER_PROFILE ?? 'gravida',
+      url: env.DEEPSEEK_URL ?? 'https://api.deepseek.com/v1',
+      key: env.DEEPSEEK_API_KEY ?? '',
+      model: env.DEEPSEEK_MODEL ?? 'deepseek-flash',
+      repos: (env.ETHER_REPOS ?? 'nexus-iti/gravida,nexus-iti/docs')
+        .split(',')
+        .map((r) => r.trim())
+        .filter(Boolean),
     },
   }
 }

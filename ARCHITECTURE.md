@@ -3,7 +3,7 @@
 Extiende `~/.claude/standards/ARCHITECTURE.md`. Decisiones en [docs/adr](docs/adr).
 
 Un proceso Bun en el host del VPS (no en container): Elysia sirve `/health`, `/ready`, `/auth/*`, `/graphql`, `/sse/:channel`
-y la SPA. Habla con Podman por el socket rootless, con GitHub por REST y con Hermes (Ether) por loopback. Su SQLite propio
+y la SPA. Habla con Podman por el socket rootless, con GitHub por REST y con la API de DeepSeek (Ether). Su SQLite propio
 (`/home/hermes/data/tabula/tabula.db`) guarda usuarios, tokens, sesiones, auditoría y lo que cada feature necesite.
 Nunca toca los datos de Gravida salvo por el editor de DB, vía `exec` en el container `db`.
 
@@ -12,7 +12,7 @@ https://tabula.wefaber.net -> nginx (vhost en la IP del tailnet, :443) -> tabula
                                                    |- tailscaled.sock (whois de la IP del cliente)
                                                    |- podman.sock  -> containers nexus-test (list/stats/logs/exec/power)
                                                    |- api.github.com (read-only)
-                                                   '- 127.0.0.1:8642 Hermes (perfil gravida)
+                                                   '- api.deepseek.com (Ask Ether: chat, modelo deepseek-flash)
 ```
 
 ## Layout
@@ -50,8 +50,8 @@ Para que varias features se escriban en paralelo sin pisarse:
 ## Config (env)
 
 `TABULA_USERS` (`login:rol:Nombre,...`), `PORT`, `DATA_DIR`, `PODMAN_SOCKET`, `NEXUS_PROJECT` (`nexus-test`), `NEXUS_FRONT_URL`
-(`http://127.0.0.1:18080`), `NEXUS_STATE_FILE`, `DB_NAME`/`DB_USER`/`DB_PASSWORD`, `GITHUB_REPO`/`GITHUB_TOKEN`,
-`ETHER_URL`/`ETHER_KEY`/`ETHER_PROFILE`, `TABULA_DOMAIN` (`tabula.wefaber.net`), `TAILSCALE_SOCKET`, `TABULA_TRUST_SERVE_HEADER` (solo si hubiera Tailscale Serve adelante). En el VPS vienen de `~/deploy/env/tabula.env`. Local: `TABULA_FIXTURES=1`.
+(`http://127.0.0.1:18080`), `NEXUS_STATE_FILE`, `DB_NAME`/`DB_USER`/`DB_PASSWORD`, `GITHUB_REPO`, un token de GitHub por organización (`GITHUB_TOKEN_NEXUS` para `nexus-iti`, `GITHUB_TOKEN_WEFABER` para `wefaber`; `GITHUB_TOKEN` sigue valiendo como el de nexus-iti),
+`DEEPSEEK_API_KEY`/`DEEPSEEK_URL`/`DEEPSEEK_MODEL` (default `deepseek-flash`) y `ETHER_REPOS` (default `nexus-iti/gravida,nexus-iti/docs`), `TABULA_DOMAIN` (`tabula.wefaber.net`), `TAILSCALE_SOCKET`, `TABULA_TRUST_SERVE_HEADER` (solo si hubiera Tailscale Serve adelante). En el VPS vienen de `~/deploy/env/tabula.env`. Local: `TABULA_FIXTURES=1`.
 
 ## Flujo de ramas
 

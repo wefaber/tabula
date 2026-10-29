@@ -6,7 +6,7 @@ import {
   Popover,
   SectionTransition,
 } from '@wefaber/ui'
-import { AlertTriangle, LogOut } from 'lucide-react'
+import { AlertTriangle, LogOut, Network } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
 import { SECTIONS } from '@/features/registry'
 import { ApiError, gql } from '@/lib/api'
@@ -162,16 +162,27 @@ export default function App() {
           {system.fixtures ? <span>{t('shell.fixtures')}</span> : null}
           <span>{me.name}</span>
           <PreferencesButton />
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              await fetch('/auth/logout', { method: 'POST' })
-              window.location.reload()
-            }}
-          >
-            <LogOut aria-hidden className="size-4" />
-            {t('shell.logout')}
-          </Button>
+          {session.data.authMethod === 'tailnet' ? (
+            // The tailnet identity is re-read on every request, so there is no session to end: say so instead of a dead button.
+            <span
+              className="inline-flex items-center gap-1.5"
+              title={t('shell.tailnet.hint')}
+            >
+              <Network aria-hidden className="size-4" />
+              {t('shell.tailnet')}
+            </span>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                await fetch('/auth/logout', { method: 'POST' })
+                window.location.reload()
+              }}
+            >
+              <LogOut aria-hidden className="size-4" />
+              {t('shell.logout')}
+            </Button>
+          )}
         </div>
       </header>
 

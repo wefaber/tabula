@@ -1,10 +1,11 @@
 // Preferences: the gear in the header opens a dialog. Every change applies at once and is saved to the server.
-import { Dialog, IconButton } from '@wefaber/ui'
-import { Settings } from 'lucide-react'
+import { Button, Dialog, IconButton } from '@wefaber/ui'
+import { Compass, Settings } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useT } from '@/lib/i18n'
 import { applyPrefs } from '@/lib/prefs'
 import { usePrefs } from '@/lib/usePrefs'
+import { openOnboarding } from './onboardingEvents'
 import {
   ContrastGroup,
   LanguageGroup,
@@ -44,6 +45,18 @@ export function PreferencesButton() {
             {t('prefs.saveError')}
           </p>
         ) : null}
+        <div className="flex justify-end border-t border-border pt-3">
+          <Button
+            variant="secondary"
+            onClick={() => {
+              setOpen(false)
+              openOnboarding()
+            }}
+          >
+            <Compass aria-hidden className="size-4" />
+            {t('prefs.tour')}
+          </Button>
+        </div>
       </Dialog>
     </>
   )

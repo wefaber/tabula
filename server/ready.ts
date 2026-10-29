@@ -1,5 +1,6 @@
 // /ready: what a deploy checks before switching slots. The panel is ready when its own DB is migrated and Podman
 // answers. Gravida's stack being down does NOT make the panel unready: the panel is how you bring it back up.
+import { GITHUB_TOKEN_VARS, githubTokenFor } from './config'
 import { pendingMigrations } from './db'
 import type { Deps } from './deps'
 
@@ -51,10 +52,34 @@ export async function readiness({
   if (!config.fixtures) {
     if (!config.nexus.dbPassword)
       problems.push({ module: 'Base de datos', detail: 'Falta DB_PASSWORD.' })
-    if (!config.github.token)
-      problems.push({ module: 'Git', detail: 'Falta GITHUB_TOKEN.' })
+    // One report per organization without a token; Git already covers the one that owns the Gravida repo.
+    const reported = new Set<string>()
+    if (!config.github.token) {
+      const owner = config.github.repo.split('/')[0]?.toLowerCase() ?? ''
+      reported.add(owner)
+      problems.push({
+        module: 'Git',
+        detail: `Falta el token de GitHub de ${owner} (${GITHUB_TOKEN_VARS[owner] ?? 'GITHUB_TOKEN'}).`,
+      })
+    }
+    for (const repo of config.ether.repos)
+      if (!githubTokenFor(config, repo)) {
+        const owner = repo.split('/')[0]?.toLowerCase() ?? ''
+        if (reported.has(owner)) continue
+        reported.add(owner)
+        const name = GITHUB_TOKEN_VARS[owner]
+        problems.push({
+          module: 'Ask Ether',
+          detail: name
+            ? `Falta ${name} para leer ${repo}.`
+            : `No hay token de GitHub para la organización de ${repo}.`,
+        })
+      }
     if (!config.ether.key)
-      problems.push({ module: 'Ask Ether', detail: 'Falta ETHER_KEY.' })
+      problems.push({
+        module: 'Ask Ether',
+        detail: 'Falta DEEPSEEK_API_KEY.',
+      })
   }
   return {
     ok: dbOk && pending === 0 && podmanOk,
