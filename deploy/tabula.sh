@@ -17,7 +17,9 @@ STATE="${TABULA_STATE:-/home/hermes/deploy/state/$APP.slot}"
 UPSTREAM="${TABULA_UPSTREAM:-/home/hermes/deploy/nginx/$APP-upstream.conf}"
 DOMAIN="${TABULA_DOMAIN:-tabula.wefaber.net}"
 TAILNET_IP="${TABULA_TAILNET_IP:-100.113.187.112}"
-PUBLIC="https://$DOMAIN"
+# nginx serves the tailnet vhost on 9443, not 443: tailscaled owns 100.113.187.112:443 on this host.
+TAILNET_PORT="${TABULA_TAILNET_PORT:-9443}"
+PUBLIC="https://$DOMAIN:$TAILNET_PORT"
 CMD="${1:-deploy}"
 
 port() { [ "$1" = blue ] && echo 4171 || echo 4172; }
@@ -25,7 +27,7 @@ other() { [ "$1" = blue ] && echo green || echo blue; }
 active() { cat "$STATE" 2>/dev/null || echo green; }   # first deploy lands on blue
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 # The real domain, as a tailnet client reaches it: SNI + Host intact, address pinned to the VPS tailnet IP.
-public_ready() { curl -fsS --max-time 5 --resolve "$DOMAIN:443:$TAILNET_IP" "$PUBLIC/ready" >/dev/null; }
+public_ready() { curl -fsS --max-time 5 --resolve "$DOMAIN:$TAILNET_PORT:$TAILNET_IP" "$PUBLIC/ready" >/dev/null; }
 ready() { curl -fsS --max-time 5 "http://127.0.0.1:$(port "$1")/ready" >/dev/null; }
 
 wait_ready() {
