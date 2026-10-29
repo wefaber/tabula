@@ -1,4 +1,5 @@
 // Git. Owns everything under src/features/git/. The timeline is the whole section: the chrome floats over it.
+import { Loader } from '@/app/Loader'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Dock, EmptyState, IconButton, Menu, MenuItem } from '@wefaber/ui'
 import {
@@ -226,8 +227,7 @@ export default function Section() {
     [data],
   )
 
-  if (graph.isPending)
-    return <p className="p-6 text-muted">Cargando historial…</p>
+  if (graph.isPending) return <Loader label="Cargando historial…" />
 
   if (graph.error) {
     const err = graph.error

@@ -1,13 +1,23 @@
 // Ask Ether. Owns everything under src/features/ether/. One orb (the only element with ambient motion), threads on the
 // left, the conversation on the right. Live text comes from the `ether-<runId>` SSE channel; the stored text comes from
 // GraphQL when the thread is opened.
+import { Loader } from '@/app/Loader'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AgentOrb } from '@wefaber/orb'
-import { Button, Chip, EmptyState, Textarea, Tile } from '@wefaber/ui'
+import {
+  Button,
+  Chip,
+  Dialog,
+  EmptyState,
+  IconButton,
+  Textarea,
+  Tile,
+} from '@wefaber/ui'
 import {
   Check,
   Copy,
   Plus,
+  Reply,
   RotateCw,
   Send,
   Share2,
@@ -15,7 +25,7 @@ import {
   Square,
   X,
 } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { follow, gql } from '@/lib/api'
 import {
   IDLE_RUN,
@@ -236,6 +246,8 @@ export default function Section() {
   const [attach, setAttach] = useState<Attach | null>(null)
   const [failure, setFailure] = useState<Failure | null>(null)
   const [draft, setDraft] = useState('')
+  // A selected piece of an answer the next message replies to; sent as `Q: <piece>\nA: <reply>`.
+  const [quote, setQuote] = useState('')
   const [sharedToken, setSharedToken] = useState(readShareToken)
 
   useEffect(() => {
@@ -338,6 +350,7 @@ export default function Section() {
     },
     onSuccess: (run) => {
       setDraft('')
+      setQuote('')
       setAttach(run)
     },
     onError: (e, question) => {
@@ -357,7 +370,7 @@ export default function Section() {
   const send = (question: string) => {
     const q = question.trim()
     if (!q || ask.isPending || (live && !isTerminal(live.state.phase))) return
-    ask.mutate(q)
+    ask.mutate(quote ? `Q: ${quote}\nA: ${q}` : q)
   }
 
   // A shared link (`#ether?s=<token>`) opens the read-only answer instead of the conversation.
@@ -455,18 +468,28 @@ export default function Section() {
               who={m.role === 'user' ? 'Vos' : 'Ether'}
               tone={m.status === 'failed' ? 'error' : undefined}
             >
-              {m.body}
+              {m.role === 'user' ? <ReplyBody body={m.body} /> : m.body}
               {m.role === 'ether' && m.status === 'done' ? (
-                <ShareControl
-                  message={m}
-                  onChanged={() => void messages.refetch()}
-                />
+                <div className="mt-2 flex flex-wrap items-center gap-1 select-none">
+                  <ReplyToSelection
+                    onQuote={(text) => {
+                      setQuote(text)
+                      document.getElementById('ether-question')?.focus()
+                    }}
+                  />
+                  <ShareControl
+                    message={m}
+                    onChanged={() => void messages.refetch()}
+                  />
+                </div>
               ) : null}
             </Bubble>
           ))}
 
           {sameThread && live?.question ? (
-            <Bubble who="Vos">{live.question}</Bubble>
+            <Bubble who="Vos">
+              <ReplyBody body={live.question} />
+            </Bubble>
           ) : null}
 
           {sameThread &&
@@ -568,42 +591,63 @@ export default function Section() {
             send(draft)
           }}
         >
+          {quote ? (
+            <div className="flex items-start gap-2 rounded-control border border-border bg-surface-2 p-2 text-body">
+              <p className="min-w-0 flex-1 border-l-2 border-accent pl-2 text-muted">
+                <span className="font-mono text-meta">Respondiendo a</span>
+                <br />
+                {quote}
+              </p>
+              <IconButton
+                label="Quitar la cita"
+                icon={<X size={16} />}
+                onClick={() => setQuote('')}
+              />
+            </div>
+          ) : null}
           <label htmlFor="ether-question" className="sr-only">
             Pregunta para Ether
           </label>
-          <Textarea
-            id="ether-question"
-            rows={2}
-            maxLength={2000}
-            value={draft}
-            placeholder="Escribí tu pregunta. Enter envía, Shift+Enter agrega una línea."
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                send(draft)
+          <div className="relative">
+            <Textarea
+              id="ether-question"
+              rows={3}
+              maxLength={2000 - (quote ? quote.length + 6 : 0)}
+              value={draft}
+              className="pb-12"
+              placeholder={
+                quote
+                  ? 'Tu respuesta a la cita. Enter envía, Shift+Enter agrega una línea.'
+                  : 'Escribí tu pregunta. Enter envía, Shift+Enter agrega una línea.'
               }
-            }}
-          />
-          <div className="flex items-center justify-end gap-2">
-            {running && runId ? (
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  send(draft)
+                }
+              }}
+            />
+            <div className="absolute right-2 bottom-2 flex items-center gap-2">
+              {running && runId ? (
+                <Button
+                  variant="danger"
+                  onClick={() => act.mutate({ op: 'stop', runId })}
+                  disabled={act.isPending}
+                >
+                  <Square className="size-4" aria-hidden />
+                  Detener
+                </Button>
+              ) : null}
               <Button
-                variant="danger"
-                onClick={() => act.mutate({ op: 'stop', runId })}
-                disabled={act.isPending}
+                variant="primary"
+                type="submit"
+                disabled={!draft.trim() || running || ask.isPending}
               >
-                <Square className="size-4" aria-hidden />
-                Detener
+                <Send className="size-4" aria-hidden />
+                Enviar
               </Button>
-            ) : null}
-            <Button
-              variant="primary"
-              type="submit"
-              disabled={!draft.trim() || running || ask.isPending}
-            >
-              <Send className="size-4" aria-hidden />
-              Enviar
-            </Button>
+            </div>
           </div>
         </form>
       </Tile>
@@ -622,6 +666,7 @@ function Bubble({
 }) {
   return (
     <div
+      data-answer={who === 'Ether' ? '' : undefined}
       className={`rounded-card p-3 ${who === 'Vos' ? 'ml-auto max-w-[85%] bg-accent/12' : 'max-w-[90%] bg-surface-2'}`}
     >
       <p className="mb-1 font-mono text-meta text-muted">{who}</p>
@@ -634,7 +679,7 @@ function Bubble({
   )
 }
 
-/** Share control under a finished answer: create the link, copy it, or stop sharing it. */
+/** Share button under a finished answer. The link itself is managed in a modal. */
 function ShareControl({
   message,
   onChanged,
@@ -642,7 +687,9 @@ function ShareControl({
   message: Message
   onChanged: () => void
 }) {
+  const [open, setOpen] = useState(false)
   const [link, setLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const share = useMutation({
     mutationFn: () =>
       gql<{ etherShare: string }>(SHARE, { messageId: message.id }).then(
@@ -661,44 +708,139 @@ function ShareControl({
     },
   })
   const url = link ?? (message.shareToken ? linkFor(message.shareToken) : null)
-
-  if (!url)
-    return (
-      <div className="mt-2">
-        <Button
-          variant="ghost"
-          onClick={() => share.mutate()}
-          disabled={share.isPending}
-        >
-          <Share2 className="size-4" aria-hidden />
-          Compartir respuesta
-        </Button>
-      </div>
-    )
+  const error = share.error ?? unshare.error
 
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2">
-      <input
-        readOnly
-        value={url}
-        aria-label="Link de la respuesta compartida"
-        onFocus={(e) => e.currentTarget.select()}
-        className="min-w-0 flex-1 rounded-control border border-border bg-bg px-2 py-1 font-mono text-meta"
-      />
-      <Button
-        onClick={() => void navigator.clipboard?.writeText(url).catch(() => {})}
-      >
-        <Copy className="size-4" aria-hidden />
-        Copiar
+    <>
+      <Button variant="ghost" onClick={() => setOpen(true)}>
+        <Share2 className="size-4" aria-hidden />
+        {url ? 'Compartida' : 'Compartir'}
       </Button>
-      <Button
-        variant="ghost"
-        onClick={() => message.shareToken && unshare.mutate(message.shareToken)}
-        disabled={unshare.isPending || !message.shareToken}
+      <Dialog
+        open={open}
+        onClose={() => {
+          setOpen(false)
+          setCopied(false)
+        }}
+        title="Compartir respuesta"
+        closeLabel="Cerrar"
       >
-        Dejar de compartir
-      </Button>
-    </div>
+        {url ? (
+          <>
+            <p className="text-muted">
+              Cualquiera del panel con este link ve la respuesta, solo lectura.
+              La conversación y el run siguen privados.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                readOnly
+                value={url}
+                aria-label="Link de la respuesta compartida"
+                onFocus={(e) => e.currentTarget.select()}
+                className="min-w-0 flex-1 rounded-control border border-border bg-bg px-2 py-1 font-mono text-meta"
+              />
+              <Button
+                variant="primary"
+                onClick={() => {
+                  void navigator.clipboard
+                    ?.writeText(url)
+                    .then(() => setCopied(true))
+                    .catch(() => {})
+                }}
+              >
+                <Copy className="size-4" aria-hidden />
+                {copied ? 'Copiado' : 'Copiar'}
+              </Button>
+            </div>
+            <div>
+              <Button
+                variant="danger"
+                onClick={() =>
+                  message.shareToken && unshare.mutate(message.shareToken)
+                }
+                disabled={unshare.isPending || !message.shareToken}
+              >
+                Dejar de compartir
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-muted">
+              Se crea un link de solo lectura a esta respuesta. Podés dejar de
+              compartirla cuando quieras.
+            </p>
+            <div>
+              <Button
+                variant="primary"
+                onClick={() => share.mutate()}
+                disabled={share.isPending}
+              >
+                <Share2 className="size-4" aria-hidden />
+                Crear link
+              </Button>
+            </div>
+          </>
+        )}
+        {error ? (
+          <p role="alert" className="text-danger">
+            {error.message}
+          </p>
+        ) : null}
+      </Dialog>
+    </>
+  )
+}
+
+/** Shows `Q: <piece>` + `A: <reply>` as a quote plus the reply; any other message as it is. */
+function ReplyBody({ body }: { body: string }) {
+  const m = /^Q: ([\s\S]*?)\nA: ([\s\S]*)$/.exec(body)
+  if (!m) return body
+  return (
+    <>
+      <span className="mb-2 block border-l-2 border-accent pl-2 text-muted">
+        {m[1]}
+      </span>
+      {m[2]}
+    </>
+  )
+}
+
+/** Appears under an answer when part of it is selected: "reply to this part". Only a selection inside that answer counts. */
+function ReplyToSelection({ onQuote }: { onQuote: (text: string) => void }) {
+  const [text, setText] = useState('')
+  const box = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const read = () => {
+      const sel = window.getSelection()
+      const bubble = box.current?.closest('[data-answer]')
+      const inside =
+        !!sel &&
+        !sel.isCollapsed &&
+        !!bubble?.contains(sel.anchorNode) &&
+        !!bubble.contains(sel.focusNode)
+      setText(inside ? sel.toString().trim().slice(0, 600) : '')
+    }
+    document.addEventListener('selectionchange', read)
+    return () => document.removeEventListener('selectionchange', read)
+  }, [])
+  return (
+    <span ref={box}>
+      {text ? (
+        <Button
+          variant="ghost"
+          // mousedown would drop the selection before the click lands
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => {
+            onQuote(text)
+            window.getSelection()?.removeAllRanges()
+          }}
+        >
+          <Reply className="size-4" aria-hidden />
+          Responder a esta parte
+        </Button>
+      ) : null}
+    </span>
   )
 }
 
@@ -716,7 +858,7 @@ function SharedView({ token }: { token: string }) {
     window.location.hash = 'ether'
   }
 
-  if (shared.isPending) return <p className="text-muted">Cargando…</p>
+  if (shared.isPending) return <Loader />
   if (!shared.data)
     return (
       <div className="flex flex-col gap-3">

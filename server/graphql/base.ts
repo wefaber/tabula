@@ -1,7 +1,7 @@
 // Base fields: who am I, panel health, my tokens, the audit log.
 import { createToken, revokeToken } from '../auth'
 import { audit, listAudit, type AuditEntry } from '../audit'
-import { readiness, type Readiness } from '../ready'
+import { readiness, type Problem, type Readiness } from '../ready'
 import { builder, fail } from './builder'
 import { clampPage } from './limits'
 import type { User } from '../auth'
@@ -14,6 +14,13 @@ const UserRef = builder.objectRef<User>('User').implement({
   }),
 })
 
+const ProblemRef = builder.objectRef<Problem>('Problem').implement({
+  fields: (t) => ({
+    module: t.exposeString('module'),
+    detail: t.exposeString('detail'),
+  }),
+})
+
 const SystemRef = builder.objectRef<Readiness>('System').implement({
   fields: (t) => ({
     ok: t.exposeBoolean('ok'),
@@ -22,6 +29,7 @@ const SystemRef = builder.objectRef<Readiness>('System').implement({
     podman: t.exposeBoolean('podman'),
     fixtures: t.exposeBoolean('fixtures'),
     version: t.exposeString('version'),
+    problems: t.field({ type: [ProblemRef], resolve: (r) => r.problems }),
   }),
 })
 

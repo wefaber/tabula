@@ -1,9 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
-import { BackToTop, Chip, SectionTransition } from '@wefaber/ui'
+import {
+  BackToTop,
+  Button,
+  Chip,
+  Popover,
+  SectionTransition,
+} from '@wefaber/ui'
+import { AlertTriangle, LogOut } from 'lucide-react'
 import { Suspense, useEffect, useState } from 'react'
 import { SECTIONS } from '@/features/registry'
 import { ApiError, gql } from '@/lib/api'
+import { Loader } from './Loader'
 import { Login } from './Login'
+import { SectionBoundary } from './SectionBoundary'
+import { Shortcuts } from './Shortcuts'
 
 interface Session {
   me: { login: string; name: string; role: string }
@@ -14,6 +24,7 @@ interface Session {
     podman: boolean
     fixtures: boolean
     version: string
+    problems: { module: string; detail: string }[]
   }
 }
 
@@ -31,6 +42,10 @@ const SESSION = /* GraphQL */ `
       podman
       fixtures
       version
+      problems {
+        module
+        detail
+      }
     }
   }
 `
@@ -49,6 +64,7 @@ export default function App() {
     retry: false,
   })
   const [active, setActive] = useState(sectionFromHash)
+  const [problemsOpen, setProblemsOpen] = useState(false)
 
   useEffect(() => {
     const onHash = () => setActive(sectionFromHash())
@@ -56,7 +72,7 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  if (session.isPending) return <p className="p-6 text-muted">Cargando…</p>
+  if (session.isPending) return <Loader />
   if (
     session.error instanceof ApiError &&
     session.error.code === 'UNAUTHENTICATED'
@@ -74,7 +90,8 @@ export default function App() {
   }
 
   const { me, system } = session.data
-  const Current = SECTIONS.find((s) => s.id === active)?.component
+  const section = SECTIONS.find((s) => s.id === active)
+  const Current = section?.component
 
   return (
     <div className="mx-auto flex min-h-svh max-w-[1800px] flex-col gap-4 p-4">
@@ -100,34 +117,68 @@ export default function App() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-3 text-meta text-muted">
-          <span
-            className={system.ok ? 'text-success' : 'text-warning'}
-            title={`DB ${system.db ? 'ok' : 'sin respuesta'} · Podman ${system.podman ? 'ok' : 'sin respuesta'}`}
-          >
-            {system.ok ? 'Panel ok' : 'Panel con fallas'}
-          </span>
+          {system.problems.length > 0 ? (
+            <Popover
+              open={problemsOpen}
+              onOpenChange={setProblemsOpen}
+              label="Módulos con fallas"
+              trigger={(props) => (
+                <Button variant="ghost" className="text-warning" {...props}>
+                  <AlertTriangle aria-hidden className="size-4" />
+                  {system.problems.length === 1
+                    ? '1 módulo con fallas'
+                    : `${system.problems.length} módulos con fallas`}
+                </Button>
+              )}
+            >
+              <ul className="flex w-72 flex-col gap-2 p-3">
+                {system.problems.map((p) => (
+                  <li key={`${p.module}:${p.detail}`}>
+                    <strong className="font-semibold text-text">
+                      {p.module}
+                    </strong>
+                    <br />
+                    <span>{p.detail}</span>
+                  </li>
+                ))}
+              </ul>
+            </Popover>
+          ) : (
+            <span className="text-success">Panel ok</span>
+          )}
           {system.fixtures ? <span>datos de prueba</span> : null}
-          <span className="tabular">v{system.version}</span>
           <span>{me.name}</span>
-          <button
-            className="underline"
+          <Button
+            variant="secondary"
             onClick={async () => {
               await fetch('/auth/logout', { method: 'POST' })
               window.location.reload()
             }}
           >
+            <LogOut aria-hidden className="size-4" />
             Salir
-          </button>
+          </Button>
         </div>
       </header>
 
-      <main className="flex-1">
-        <SectionTransition id={active}>
-          <Suspense fallback={<p className="text-muted">Cargando…</p>}>
-            {Current ? <Current /> : null}
-          </Suspense>
-        </SectionTransition>
+      <main className="flex flex-1 flex-col">
+        <div className="my-auto w-full">
+          <SectionTransition id={active}>
+            <SectionBoundary
+              key={active}
+              module={section?.label ?? 'La sección'}
+            >
+              <Suspense fallback={<Loader />}>
+                {Current ? <Current /> : null}
+              </Suspense>
+            </SectionBoundary>
+          </SectionTransition>
+        </div>
       </main>
+      <footer className="flex justify-end text-meta text-muted">
+        <span className="tabular">v{system.version}</span>
+      </footer>
+      <Shortcuts active={active} />
       <BackToTop />
     </div>
   )
