@@ -1,4 +1,4 @@
-# Gravida Dev Panel
+# Tabula
 
 Panel de operación del stack de Gravida. Bun + Elysia + GraphQL (Yoga/Pothos) + React 19 + Tailwind v4. Español rioplatense en la UI, inglés en código y commits.
 

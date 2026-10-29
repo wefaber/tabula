@@ -19,7 +19,7 @@ permissions:
 
 # Un deploy a la vez y sin cancelar el que corre: cancelar a mitad deja los slots a medio actualizar.
 concurrency:
-  group: deploy-gravida-devpanel
+  group: deploy-tabula
   cancel-in-progress: false
 
 env:
@@ -51,11 +51,11 @@ jobs:
 
       - name: Deploy (blue/green)
         if: inputs.action != 'rollback'
-        run: bash deploy/gravida-devpanel.sh "$(git rev-parse --short HEAD)"
+        run: bash deploy/tabula.sh "$(git rev-parse --short HEAD)"
 
       - name: Rollback
         if: inputs.action == 'rollback'
-        run: bash deploy/gravida-devpanel.sh rollback
+        run: bash deploy/tabula.sh rollback
 
       # No alcanza con que el workflow pase: se mira la pagina real y la version que responde.
       - name: Verificar en el dominio real
@@ -75,5 +75,5 @@ jobs:
             echo "- URL: $base"
             echo "- Commit: \`$(git rev-parse --short HEAD)\`"
             echo "- /ready: \`$ready\`"
-            bash deploy/gravida-devpanel.sh status | sed 's/^/- /'
+            bash deploy/tabula.sh status | sed 's/^/- /'
           } >> "$GITHUB_STEP_SUMMARY"

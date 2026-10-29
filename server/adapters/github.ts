@@ -27,7 +27,7 @@ export function githubClient(repo: string, token: string): GithubClient {
       headers: {
         accept: 'application/vnd.github+json',
         'x-github-api-version': '2022-11-28',
-        'user-agent': 'gravida-devpanel',
+        'user-agent': 'tabula',
         ...(token ? { authorization: `Bearer ${token}` } : {}),
         ...(cached ? { 'if-none-match': cached.etag } : {}),
       },

@@ -69,8 +69,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Sintaxis y shellcheck
         run: |
-          bash -n deploy/gravida-devpanel.sh
-          shellcheck --severity=warning deploy/gravida-devpanel.sh
+          bash -n deploy/tabula.sh
+          shellcheck --severity=warning deploy/tabula.sh
       - name: Los .sh del repo son LF
         run: |
           if git ls-files '*.sh' | xargs grep -l $'\r'; then
