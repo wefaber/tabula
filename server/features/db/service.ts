@@ -140,13 +140,10 @@ export function rowLabel(table: string, cols: ColumnInfo[], pk: Row): string {
  */
 export function checkValues(cols: ColumnInfo[], values: Row): Row {
   const out: Row = {}
+  const byName = new Map(cols.map((c) => [c.name, c]))
   for (const name of Object.keys(values)) {
-    assertKnown(
-      name,
-      cols.map((c) => c.name),
-      'la columna',
-    )
-    const c = cols.find((x) => x.name === name) as ColumnInfo
+    assertKnown(name, [...byName.keys()], 'la columna')
+    const c = byName.get(name) as ColumnInfo
     const raw = values[name]
     if (c.secret) {
       if (raw === MASK) continue

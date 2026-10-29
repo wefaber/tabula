@@ -261,6 +261,19 @@ export default function Section() {
       })
       .catch(() => {})
   }, [attach, live, resumeId, thread])
+  // A run ended: reload the stored thread and list, then drop the live copy. Its own effect, because setAttach(null)
+  // re-runs the follow effect's cleanup and that must not cancel the reload.
+  const [ended, setEnded] = useState(false)
+  useEffect(() => {
+    if (!ended) return
+    const timer = setTimeout(async () => {
+      await qc.refetchQueries({ queryKey: ['ether', 'messages'] })
+      await qc.refetchQueries({ queryKey: ['ether', 'threads'] })
+      setLive(null)
+      setEnded(false)
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [ended, qc])
   const runId = attach?.runId
   const runThread = attach?.thread
   const streamKey = attach?.streamKey
@@ -273,11 +286,7 @@ export default function Section() {
     const pending: (EtherEvent & { seq: number })[] = []
     const finish = () => {
       setAttach(null)
-      setTimeout(async () => {
-        await qc.refetchQueries({ queryKey: ['ether', 'messages'] })
-        await qc.refetchQueries({ queryKey: ['ether', 'threads'] })
-        setLive(null)
-      }, 250)
+      setEnded(true)
     }
     const apply = (ev: EtherEvent) => {
       setLive((prev) =>
@@ -315,7 +324,7 @@ export default function Section() {
         pending.length = 0
       })
     return close
-  }, [runId, runThread, streamKey, qc])
+  }, [runId, runThread, streamKey])
 
   const ask = useMutation({
     mutationFn: (question: string) =>

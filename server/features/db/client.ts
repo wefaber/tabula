@@ -124,8 +124,10 @@ export function mariadbClient(
     },
 
     async page(table, cols, page) {
-      const rs = await read(selectPageSql(table, cols, page), page.limit)
-      const total = await read(countRowsSql(table, cols, page.filter))
+      const [rs, total] = await Promise.all([
+        read(selectPageSql(table, cols, page), page.limit),
+        read(countRowsSql(table, cols, page.filter)),
+      ])
       return {
         rows: rs.rows.map((r) => rowOf(rs.columns, r)),
         total: Number(total.rows[0]?.[0] ?? 0),

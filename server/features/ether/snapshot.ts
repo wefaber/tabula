@@ -149,7 +149,7 @@ export async function collectSnapshot(
   deps: Pick<Deps, 'config' | 'db' | 'podman'>,
   now = new Date(),
 ): Promise<SystemSnapshot> {
-  const containers = await deps.podman
+  const containersRead = deps.podman
     .list(deps.config.nexus.project)
     .then((list) =>
       list.map((c) => ({
@@ -161,9 +161,13 @@ export async function collectSnapshot(
       })),
     )
     .catch(() => [])
-  const activeTag = await readFile(deps.config.nexus.stateFile, 'utf8')
+  const activeTagRead = readFile(deps.config.nexus.stateFile, 'utf8')
     .then(parseActiveTag)
     .catch(() => null)
+  const [containers, activeTag] = await Promise.all([
+    containersRead,
+    activeTagRead,
+  ])
   return {
     at: now.toISOString(),
     project: deps.config.nexus.project,
